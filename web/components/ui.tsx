@@ -10,7 +10,7 @@ export function Header({ active }: { active?: "list" | "compare" | "about" }) {
   return (
     <header className="hdr">
       <div className="wrap hdr-in">
-        <Link href="/" className="logo" aria-label="청담음료 홈">청담음료</Link>
+        <Link href="/" className="logo" aria-label="득근음료 홈">득근음료</Link>
         <nav className="nav">
           <Link href="/" className={active === "list" ? "on" : ""}>탐색</Link>
           <Link href="/compare/" className={active === "compare" ? "on" : ""}>
@@ -150,7 +150,7 @@ export function Footer() {
     <footer className="ftr">
       <div className="wrap">
         <p>
-          청담음료(가칭) · KAIST 8조 MVP · 데이터 출처: 식품의약품안전처 식품영양성분DB(공공데이터포털). 표시값은 제품 영양성분표 기준이며, 순위·점수·추천을 제공하지 않습니다.
+          득근음료(가칭) · KAIST 8조 MVP · 데이터 출처: 식품의약품안전처 식품영양성분DB(공공데이터포털). 표시값은 제품 영양성분표 기준이며, 순위·점수·추천을 제공하지 않습니다.
         </p>
         <p><Link href="/about/">분석 방법 보기</Link></p>
       </div>

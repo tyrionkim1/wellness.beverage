@@ -24,7 +24,7 @@ export default function DetailView() {
 
   const d: Drink | undefined = data?.byId.get(id);
   useEffect(() => {
-    if (d) document.title = `${d.name} — 청담음료`;
+    if (d) document.title = `${d.name} — 득근음료`;
   }, [d]);
 
   const back = () => (window.history.length > 1 ? router.back() : router.push("/"));

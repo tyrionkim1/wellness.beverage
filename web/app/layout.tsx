@@ -3,10 +3,10 @@ import "./globals.css";
 import { Toaster } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "청담음료 — 성분 숫자로 고르는 음료",
+  title: "득근음료 — 성분 숫자로 고르는 음료",
   description: "식약처 식품영양성분DB 기반. 단백질·당류·카페인을 숫자로 나란히 비교합니다. 순위·추천 없이 표시값만.",
   openGraph: {
-    title: "청담음료 — 숫자로 고른다",
+    title: "득근음료 — 숫자로 고른다",
     description: "단백질 · 당류 · 카페인. 성분표만 나란히.",
     type: "website",
     locale: "ko_KR",

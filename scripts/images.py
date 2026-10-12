@@ -22,7 +22,7 @@ SRC_DIR = ROOT / "data" / "images" / "source"
 OUT_DIR = ROOT / "web" / "public" / "img"
 MANIFEST = ROOT / "data" / "images" / "manifest.json"
 MAX_PX = 600
-UA = "Mozilla/5.0 (cheongdam-drink image pipeline; KAIST class project)"
+UA = "Mozilla/5.0 (deukgeun-drink image pipeline; KAIST class project)"
 
 
 def download(url: str, dest_stem: pathlib.Path) -> pathlib.Path:
