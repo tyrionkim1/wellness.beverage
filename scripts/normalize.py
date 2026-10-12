@@ -158,8 +158,9 @@ def main() -> None:
         })
 
     PROC.mkdir(parents=True, exist_ok=True)
-    with gzip.open(PROC / "drinks.json.gz", "wt", encoding="utf-8") as f:
-        json.dump({"collected": day, "count": len(items), "items": items}, f, ensure_ascii=False)
+    # mtime=0: 내용이 같으면 파일도 같게 (불필요한 커밋 방지)
+    with open(PROC / "drinks.json.gz", "wb") as raw_f, gzip.GzipFile(fileobj=raw_f, mode="wb", mtime=0) as gz:
+        gz.write(json.dumps({"collected": day, "count": len(items), "items": items}, ensure_ascii=False).encode("utf-8"))
     (ids_dir / f"{day}.txt").write_text("\n".join(sorted(seen)))
 
     # ---- 웹 경량본 (컬럼 배열) ----
