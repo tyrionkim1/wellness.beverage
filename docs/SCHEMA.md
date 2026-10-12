@@ -1,4 +1,4 @@
-# SCHEMA.md — drinks.json 스키마 (초안 v0.1)
+# SCHEMA.md — 데이터 스키마 (v0.2)
 
 담당: 김강 · 협력: 이윤표 · 최종 수정: 2026-10-12
 
@@ -31,3 +31,12 @@
 ## 카페인 입력 파일
 `data/samples/caffeine_labels.csv` — 컬럼: `food_cd, name, caffeine_mg, label_basis(1팩/100ml), checked_by, checked_at`
 - 1팩 기준으로 환산해 입력. 약사(이윤표) 확인 후 `checked_by` 기입.
+
+## 파일 구성 (v0.2)
+| 파일 | 내용 |
+|---|---|
+| `data/raw/YYYY-MM-DD.json.gz` | 원천 그대로 (`meta` + `items[]`) |
+| `data/processed/drinks.json.gz` | 위 필드 전체 + `type`, `rtd`, `single_serve`, `is_new`, `image`, `shape` |
+| `data/processed/summary.json` | 건수·커버리지 |
+| `data/processed/ids/YYYY-MM-DD.txt` | 수집일별 식품코드 (신규 판정용) |
+| `web/public/data/drinks.min.json` | 웹 경량본: `cols` 순서의 배열(`rows`) + `makers`·`types`·`shapes` 사전. 영양성분은 **100ml(g) 기준 원값**, 1팩 값은 웹에서 계산 |

@@ -1,0 +1,15 @@
+// FR-8 성분 용어 설명. ⚠ 약사(이윤표) 감수 전 초안 v0 — 질병·효능 표현 금지.
+// 감수 후 STATUS 를 "reviewed" 로 바꾸고 docs/CHANGELOG.md 에 기록.
+export const GLOSSARY_STATUS: "draft" | "reviewed" = "draft";
+
+export const GLOSSARY: { term: string; body: string; keys?: string[] }[] = [
+  { term: "열량", keys: ["kcal"], body: "식품을 먹었을 때 얻는 에너지의 양. 영양성분표의 kcal 수치입니다." },
+  { term: "탄수화물", keys: ["carb"], body: "당류·식이섬유 등을 모두 합친 값. 당류는 탄수화물 안에 포함됩니다." },
+  { term: "당류", keys: ["sugar"], body: "영양성분표의 '당류' 칸 수치. 식품에 든 단당류와 이당류를 합한 값입니다." },
+  { term: "대체감미료", body: "설탕 대신 단맛을 내는 원료. 원료에 따라 당류 수치에 포함되지 않을 수 있습니다." },
+  { term: "단백질", keys: ["protein"], body: "영양성분표의 '단백질' 칸 수치. 제품마다 원료(우유·대두·콜라겐 등)가 다를 수 있으니 원재료명을 함께 확인하세요." },
+  { term: "포화지방 · 트랜스지방", keys: ["satFat", "transFat"], body: "지방의 종류별 함량. 지방 수치 안에 포함되는 세부 값입니다." },
+  { term: "나트륨", keys: ["sodium"], body: "영양성분표의 '나트륨' 칸 수치(mg)." },
+  { term: "1팩 기준", body: "포장 1개(500ml·g 이하)를 다 마셨을 때의 값. 100ml(g) 기준 수치 × 용량 ÷ 100 으로 계산합니다." },
+  { term: "100ml(g) 기준", body: "식약처 DB에 실린 원래 기준. 500ml(g)을 넘는 대용량은 이 기준으로만 보여줍니다." },
+];
