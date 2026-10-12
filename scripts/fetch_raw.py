@@ -33,9 +33,20 @@ def fetch_page(key: str, page: int) -> dict:
         body = json.loads(text)
     except json.JSONDecodeError:
         sys.exit(f"JSON 아님 (키 미등록·트래픽 초과 등): {text[:500]}")
-    if "response" not in body:
+    if "response" in body:  # 구형 래핑
+        body = body["response"]
+    if "header" not in body:
         sys.exit(f"예상과 다른 응답: {json.dumps(body, ensure_ascii=False)[:500]}")
     return body
+
+
+def extract_items(res: dict) -> list:
+    items = res.get("items") or []
+    if isinstance(items, dict):
+        items = items.get("item") or []
+    if isinstance(items, dict):
+        items = [items]
+    return items
 
 
 def main() -> None:
@@ -49,12 +60,12 @@ def main() -> None:
     page, total, saved = 1, None, 0
     while True:
         body = fetch_page(key, page)
-        header = body["response"]["header"]
+        header = body["header"]
         if header["resultCode"] not in ("00", "03"):
             sys.exit(f"API 오류 {header['resultCode']}: {header['resultMsg']}")
-        res = body["response"]["body"]
+        res = body.get("body") or {}
         total = int(res.get("totalCount", 0))
-        items = res.get("items") or []
+        items = extract_items(res)
         (out / f"page_{page:03d}.json").write_text(json.dumps(body, ensure_ascii=False, indent=1), encoding="utf-8")
         saved += len(items)
         print(f"page {page}: {len(items)}건 (누적 {saved}/{total})")

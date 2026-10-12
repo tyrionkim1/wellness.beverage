@@ -56,7 +56,13 @@ def main() -> None:
     out, seen = [], set()
     for page in sorted((raw_root / day).glob("page_*.json")):
         body = json.loads(page.read_text(encoding="utf-8"))
-        for it in body["response"]["body"].get("items") or []:
+        body = body.get("response", body)
+        items = (body.get("body") or {}).get("items") or []
+        if isinstance(items, dict):
+            items = items.get("item") or []
+        if isinstance(items, dict):
+            items = [items]
+        for it in items:
             cd = it.get("foodCd")
             if not cd or cd in seen:
                 continue
