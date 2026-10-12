@@ -28,7 +28,14 @@ def fetch_page(key: str, page: int) -> dict:
     }
     url = ENDPOINT + "?" + urllib.parse.urlencode(params, safe="%")
     with urllib.request.urlopen(url, timeout=60) as r:
-        return json.loads(r.read().decode("utf-8"))
+        text = r.read().decode("utf-8", errors="replace")
+    try:
+        body = json.loads(text)
+    except json.JSONDecodeError:
+        sys.exit(f"JSON 아님 (키 미등록·트래픽 초과 등): {text[:500]}")
+    if "response" not in body:
+        sys.exit(f"예상과 다른 응답: {json.dumps(body, ensure_ascii=False)[:500]}")
+    return body
 
 
 def main() -> None:
