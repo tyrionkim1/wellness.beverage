@@ -228,3 +228,6 @@ img.thumb { object-fit: contain; padding: 6px; }
 .ctable .lab { width: 56px; white-space: nowrap; padding-right: 4px; }
 .ctable .lab b { font-size: 12.5px; }
 .ctable td { padding: 12px 6px; }
+.ctable thead th { vertical-align: top; }
+.pcol { min-width: 92px; padding: 8px; }
+.ctable { border-spacing: 4px 0; }

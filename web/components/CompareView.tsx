@@ -2,7 +2,7 @@
 // FR-4 스펙 비교 (같은 행 정렬, 등급·순위·강조색 없음) · FR-10 URL 공유
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Basis, Dataset, Drink, basisLabel, effectiveBasis, fmtNum, loadData, nut, Nutrients } from "@/lib/data";
 import { MAX_COMPARE, useCompare } from "@/lib/compare";
 import { Footer, Header, toast } from "./ui";
@@ -22,8 +22,6 @@ const ROWS: Row[] = [
 
 export default function CompareView() {
   const sp = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
   const store = useCompare();
   const [data, setData] = useState<Dataset | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -47,11 +45,12 @@ export default function CompareView() {
   const remove = (id: string) => {
     const next = ids.filter((x) => x !== id);
     store.set(next);
-    router.replace(next.length ? `${pathname}?ids=${next.map(encodeURIComponent).join(",")}` : pathname, { scroll: false });
+    const base = window.location.pathname;
+    window.history.replaceState(window.history.state, "", next.length ? `${base}?ids=${next.map(encodeURIComponent).join(",")}` : base);
   };
 
   const share = async () => {
-    const url = `${window.location.origin}${pathname}?ids=${ids.map(encodeURIComponent).join(",")}`;
+    const url = `${window.location.origin}${window.location.pathname}?ids=${ids.map(encodeURIComponent).join(",")}`;
     try {
       await navigator.clipboard.writeText(url);
       toast("링크를 복사했어요");

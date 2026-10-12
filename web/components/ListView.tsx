@@ -1,7 +1,7 @@
 "use client";
 // FR-1 목록 · FR-2 필터 3종 · FR-5 검색 · FR-6 프리셋 · FR-7 업데이트 표시
 import { useEffect, useMemo, useState, useDeferredValue } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Dataset, loadData } from "@/lib/data";
 import {
   applyPreset, CAFFEINE_OPTS, EMPTY, Filters, fromQuery, PRESETS, presetActive, PROTEIN_OPTS, run, SUGAR_OPTS, toQuery,
@@ -12,8 +12,6 @@ const PAGE = 40;
 
 export default function ListView() {
   const sp = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
   const [data, setData] = useState<Dataset | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [f, setF] = useState<Filters>(() => fromQuery(new URLSearchParams(sp.toString())));
@@ -28,9 +26,13 @@ export default function ListView() {
 
   // 필터 → URL (공유·새로고침 유지)
   useEffect(() => {
-    const t = setTimeout(() => router.replace(`${pathname}${toQuery(f)}`, { scroll: false }), 250);
+    // history API 직접 사용: 정적 배포에서 서버 왕복 없이 주소만 바꾼다
+    const t = setTimeout(() => {
+      const next = `${window.location.pathname}${toQuery(f)}`;
+      if (next !== `${window.location.pathname}${window.location.search}`) window.history.replaceState(window.history.state, "", next);
+    }, 250);
     return () => clearTimeout(t);
-  }, [f, pathname, router]);
+  }, [f]);
 
   const fEff = useMemo(() => ({ ...f, q: qDeferred }), [f, qDeferred]);
   const res = useMemo(() => (data ? run(data.drinks, fEff) : null), [data, fEff]);
