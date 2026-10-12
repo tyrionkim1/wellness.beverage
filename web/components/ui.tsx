@@ -1,12 +1,15 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Drink, effectiveBasis, fmtDate, fmtNum, fmtSize, nut, Summary } from "@/lib/data";
-import { MAX_COMPARE, useCompare } from "@/lib/compare";
+import { Basis, Drink, effectiveBasis, fmtDate, fmtNum, fmtSize, insights, nut, proteinShare, Summary, sweetNames, TagDef, tagNames } from "@/lib/data";
+import { MAX_COMPARE, MAX_SAMPLER, useCompare, useSampler } from "@/lib/compare";
+import { SLOT_OPTIONS, SlotKey } from "@/lib/prefs";
+import { track } from "@/lib/track";
 import Pack from "./Pack";
 
-export function Header({ active }: { active?: "list" | "compare" | "about" }) {
+export function Header({ active }: { active?: "list" | "compare" | "sampler" | "about" }) {
   const { ids } = useCompare();
+  const sampler = useSampler();
   return (
     <header className="hdr">
       <div className="wrap hdr-in">
@@ -16,7 +19,10 @@ export function Header({ active }: { active?: "list" | "compare" | "about" }) {
           <Link href="/compare/" className={active === "compare" ? "on" : ""}>
             비교{ids.length ? <b className="nav-badge">{ids.length}</b> : null}
           </Link>
-          <Link href="/about/" className={active === "about" ? "on" : ""}>분석 방법</Link>
+          <Link href="/sampler/" className={active === "sampler" ? "on" : ""}>
+            샘플러{sampler.ids.length ? <b className="nav-badge">{sampler.ids.length}</b> : null}
+          </Link>
+          <Link href="/about/" className={active === "about" ? "on" : ""}>방법</Link>
         </nav>
       </div>
     </header>
@@ -61,8 +67,19 @@ export function Stat({ label, value, unit, big, note }: { label: string; value: 
   );
 }
 
-export function ProductCard({ d, onToggle, selected }: { d: Drink; onToggle: (id: string) => void; selected: boolean }) {
+export function slotValue(d: Drink, key: SlotKey, b: Basis): number | null {
+  if (key === "caffeine") return d.caffeine;
+  if (key === "proteinShare") return proteinShare(d);
+  return nut(d, key, b);
+}
+
+export function ProductCard({ d, onToggle, selected, slots, tagDefs, sweetDefs, inSampler, onSampler }: {
+  d: Drink; onToggle: (id: string) => void; selected: boolean; slots: SlotKey[];
+  tagDefs: TagDef[]; sweetDefs: TagDef[]; inSampler: boolean; onSampler: (id: string) => void;
+}) {
   const b = effectiveBasis(d, "pack");
+  const ins = insights(d, b);
+  const chips = [...sweetNames(d, sweetDefs).filter((n) => n !== "설탕·당류 원료"), ...tagNames(d, tagDefs).filter((n) => n !== "유제품 원료" && n !== "탄산")].slice(0, 3);
   return (
     <article className="card">
       <Link href={`/p/?id=${encodeURIComponent(d.id)}`} className="card-link">
@@ -81,19 +98,31 @@ export function ProductCard({ d, onToggle, selected }: { d: Drink; onToggle: (id
           </div>
         </div>
         <div className="stats">
-          <Stat label="단백질" value={nut(d, "protein", b)} unit="g" />
-          <Stat label="당류" value={nut(d, "sugar", b)} unit="g" />
-          <Stat label="카페인" value={d.caffeine} unit="mg" />
+          {slots.map((k) => {
+            const o = SLOT_OPTIONS.find((x) => x.key === k)!;
+            return <Stat key={k} label={o.label} value={slotValue(d, k, b)} unit={o.unit} />;
+          })}
         </div>
+        {ins.length ? <p className="insight">{ins.join(" · ")}</p> : null}
+        {chips.length || d.taste ? (
+          <div className="chips-mini">
+            {d.taste ? <span className="mini taste">맛 기록 있음</span> : null}
+            {chips.map((c) => <span key={c} className="mini">{c}</span>)}
+          </div>
+        ) : null}
       </Link>
       <button
         type="button"
         className={`chk${selected ? " on" : ""}`}
         aria-pressed={selected}
         aria-label={selected ? "비교에서 빼기" : "비교에 담기"}
+        title="비교에 담기"
         onClick={() => onToggle(d.id)}
       >
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 12.5 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+      <button type="button" className={`smp${inSampler ? " on" : ""}`} aria-pressed={inSampler} onClick={() => onSampler(d.id)}>
+        {inSampler ? "샘플러 ✓" : "+ 샘플러"}
       </button>
     </article>
   );
@@ -133,6 +162,17 @@ export function Toaster() {
     };
   }, []);
   return msg ? <div className="toast" role="status">{msg}</div> : null;
+}
+
+export function useToggleSampler() {
+  const { ids, toggle } = useSampler();
+  const onSampler = (id: string) => {
+    const r = toggle(id);
+    if (r === "full") toast(`샘플러는 최대 ${MAX_SAMPLER}개까지 담을 수 있어요`);
+    else if (r === "added") { toast("샘플러에 담았어요"); track("sampler_add", id); }
+    else track("sampler_remove", id);
+  };
+  return { samplerIds: ids, onSampler };
 }
 
 export function useToggleCompare() {

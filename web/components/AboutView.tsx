@@ -25,7 +25,7 @@ export default function AboutView() {
             <div className="kpi"><b>{n(s?.count)}</b><span>바로 마시는 음료</span></div>
             <div className="kpi"><b>{pct(s?.singleServe, s?.count)}</b><span>1팩 기준 표시 가능</span></div>
             <div className="kpi"><b>{n(s?.caffeineCount)}</b><span>카페인 입력 완료</span></div>
-            <div className="kpi"><b>{n(s?.imageCount)}</b><span>제품 이미지</span></div>
+            <div className="kpi"><b>{pct(s?.ingredientCount, s?.count)}</b><span>원재료 확보</span></div>
           </div>
           <p style={{ marginTop: 10 }}>
             수집일 <b className="mono">{fmtDate(s?.collected)}</b> · 식약처 데이터 기준일 <b className="mono">{fmtDate(s?.baseDate)}</b> · 원천 {n(s?.rawTotal)}건 중 물에 타서 먹는 제품 {n(s?.excluded)}건 제외
@@ -70,12 +70,43 @@ export default function AboutView() {
         </section>
 
         <section>
-          <h2>5. 카페인</h2>
+          <h2>5. 원재료 태그 — 들어 있다 / 없다만 말한다</h2>
+          <ul>
+            <li>식품안전나라 ‘품목제조보고(원재료)’에서 품목보고번호로 원재료명을 받아, 이름이 들어 있는지만 확인해 태그를 붙입니다. 예: 유산균 원료, 식물성 단백 원료, 감미료(알룰로스·수크랄로스 등), 유제품 원료 없음.</li>
+            <li>태그는 <b>효능이나 인증이 아닙니다.</b> ‘락토프리’는 제품명에 그렇게 표기된 경우만 따로 표시하고, ‘유제품 원료 없음’은 원재료명 기준 사실입니다.</li>
+            <li>수입식품은 품목제조보고 대상이 아니어서 원재료가 없을 수 있고, 복합원재료의 하위 성분은 원재료명에 안 나올 수 있습니다.</li>
+            <li>‘혈당’ 같은 기능 표현은 쓰지 않습니다. 관련 원료(난소화성말토덱스트린 등)는 ‘식이섬유 원료’ 태그로만 보여줍니다.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>6. 숫자를 생활 단위로</h2>
+          <ul>
+            <li><b>하루 기준치 %</b> — 식품 등의 표시기준 1일 영양성분 기준치 대비 (단백질 55g, 당류 100g, 나트륨 2,000mg 등).</li>
+            <li><b>단백질 비중</b> — 열량 중 단백질에서 오는 비율 = 단백질 g × 4 ÷ 열량.</li>
+            <li><b>각설탕 환산</b> — 당류 ÷ 3g (0.5개 단위).</li>
+            <li><b>카페인</b> — 성인 1일 최대 섭취권고량 400mg 대비 %.</li>
+            <li>모두 같은 숫자를 다른 단위로 바꾼 것일 뿐, 좋고 나쁨을 매기지 않습니다.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>7. 맛 기록</h2>
+          <p>팀 시음 패널이 블라인드로 마셔보고 ‘널리 알려진 음료보다 덜 달다’ 같은 기준 음료 대비 한 문장과 단맛·산미·탄산·바디감·뒷맛(약/중/강)을 기록합니다. 점수나 별점은 매기지 않습니다. 현재 기록 {n(s?.tasteCount)}개.</p>
+        </section>
+
+        <section>
+          <h2>8. 샘플러 (사전 신청)</h2>
+          <p>박스로 사기 전에 1개씩 맛보고 싶은 수요가 있는지 확인하는 중입니다. 지금은 판매·결제 없이 담은 조합과 원하는 가격, 이메일만 받고, 화면 이용 기록은 익명(세션 단위)으로만 집계합니다.</p>
+        </section>
+
+        <section>
+          <h2>9. 카페인</h2>
           <p>식약처 영양성분DB에는 카페인 항목이 없습니다. 제품 포장의 표시사항을 보고 약사 확인을 거쳐 한 개씩 입력하고 있으며, 입력된 제품만 카페인 필터에 잡힙니다.</p>
         </section>
 
         <section>
-          <h2>6. 우리가 하지 않는 것</h2>
+          <h2>10. 우리가 하지 않는 것</h2>
           <ul>
             <li>제품에 등급·점수·순위를 매기지 않습니다. 정렬은 이름순과 최근 등록순뿐입니다.</li>
             <li>“당신에게 추천” 같은 추천을 하지 않습니다.</li>

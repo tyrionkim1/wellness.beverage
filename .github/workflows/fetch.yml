@@ -24,13 +24,20 @@ jobs:
         env:
           DATA_GO_KR_KEY: ${{ secrets.DATA_GO_KR_KEY }}
         run: python3 scripts/fetch_raw.py
-      - name: Normalize
+      - name: Normalize (1차 — 웹 데이터 갱신)
+        run: python3 scripts/normalize.py
+      - name: Ingredients (새 품목보고번호만)
+        continue-on-error: true   # 원재료 API 장애가 영양성분 갱신을 막지 않게
+        env:
+          FOODSAFETY_KEY: ${{ secrets.FOODSAFETY_KEY }}
+        run: python3 scripts/ingredients.py --workers 4 | tail -3
+      - name: Normalize (원재료 태그 반영)
         run: python3 scripts/normalize.py | tee normalize.log
       - name: Commit
         run: |
           git config user.name "data-bot"
           git config user.email "data-bot@users.noreply.github.com"
-          git add data/raw data/processed web/public/data
+          git add data/raw data/processed data/ingredients web/public/data
           if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
           git commit -m "data: 식약처 음료류 수집 $(date +%F)" -m "$(cat normalize.log)"
           git push

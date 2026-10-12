@@ -8,6 +8,7 @@ on:
     paths:
       - data/images/sources.csv
       - data/samples/caffeine_labels.csv
+      - data/samples/taste_notes.csv
       - scripts/normalize.py
       - scripts/images.py
   workflow_dispatch: {}
