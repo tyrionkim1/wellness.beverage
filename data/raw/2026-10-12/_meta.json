@@ -1,0 +1,9 @@
+{
+  "fetched_at": "2026-10-12T11:28:15",
+  "endpoint": "https://api.data.go.kr/openapi/tn_pubr_public_nutri_process_info_api",
+  "filter": {
+    "foodLv3Nm": "음료류"
+  },
+  "total_count": 37899,
+  "saved": 37899
+}
