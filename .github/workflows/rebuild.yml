@@ -11,6 +11,7 @@ on:
       - data/samples/taste_notes.csv
       - scripts/normalize.py
       - scripts/images.py
+      - data/brands/major.csv
   workflow_dispatch: {}
 
 permissions:

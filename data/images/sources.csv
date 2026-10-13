@@ -1,1 +1,7 @@
-food_cd,source_url,collected_at,note
+food_cd,source_url,collected_at,note,crop
+P109-801080100-6056,https://lottemartzetta.com/images-v3/932dcbc7-fca8-4d43-bcde-f73d1ce3cc7d/7129b521-9a84-4fdd-9c19-4fc313325548/500x500.jpg,2026-10-13,롯데마트제타 상품페이지 https://lottemartzetta.com/products/OS8801056911799/details,
+P109-801080100-6406,https://www.harimmall.com/web/product/big/202607/7f8c39e74f45573d2b083074db072c0b.png,2026-10-13,공식몰(하림몰) https://www.harimmall.com/product/1897/,
+P109-500050200-0695,https://godomall-storage.cdn-nhncommerce.com/5076b7188cfb3931aec9a1cca49036c4/goods/1000000275/image/main/1000000275_main_058.jpg,2026-10-13,공식몰(연세유업) https://www.yonseidairy.com/goods/goods_view.php?goodsNo=1000000275,0.45 0 1 1
+P109-500050200-0703,https://erom.co.kr/web/product/big/202608/93508aa20b68d52eadf84f3077762087.jpg,2026-10-13,공식몰(이롬몰) https://erom.co.kr/product/870/,0.68 0.35 1 1
+P109-401040100-2176,https://cloop.co.kr/web/product/big/202610/7fd48b9e1098f9ff9c781b64a74bf7e0.png,2026-10-13,공식몰(클룹) https://cloop.co.kr/product/33/,0.12 0.05 0.62 0.95
+P109-401040100-0867,https://nongshimmall.com/web/product/big/202606/93c358ad38d5a46950224022332c82b6.jpg,2026-10-13,공식몰(농심몰) https://nongshimmall.com/product/3790/,0.25 0.08 0.78 1

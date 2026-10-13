@@ -167,6 +167,24 @@ def tag_ingredients(raw_text, name):
     return tags, sw
 
 
+def load_major():
+    """data/brands/major.csv — 대기업·음료 상위사 판별 규칙 (CRITERIA R9).
+    식약처 DB의 제조사는 실제 생산 공장(OEM)이라 브랜드와 다를 수 있어, 제조사명 + 제품명 키워드를 함께 본다."""
+    import re as _re
+    p = ROOT / "data" / "brands" / "major.csv"
+    if not p.exists():
+        return []
+    with p.open(encoding="utf-8") as f:
+        return [(r["kind"], _re.compile(r["pattern"]), r["group"]) for r in csv.DictReader(f) if r.get("pattern")]
+
+
+def major_group(rules, maker, name):
+    for kind, rx, group in rules:
+        if rx.search((maker if kind == "maker" else name) or ""):
+            return group
+    return None
+
+
 def load_images():
     p = ROOT / "data" / "images" / "manifest.json"
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
@@ -189,6 +207,7 @@ def main() -> None:
     latest_created = datetime.date.fromisoformat(max(created_all)) if created_all else datetime.date.fromisoformat(day)
     caffeine, images = load_caffeine(), load_images()
     ingr, taste = load_ingredients(), load_taste()
+    major_rules = load_major()
 
     items, seen = [], set()
     for it in raw["items"]:
@@ -240,6 +259,7 @@ def main() -> None:
             "tags": tags,
             "sweet": sweet,
             "taste": taste.get(cd),
+            "major": major_group(major_rules, clean(it.get("mfrNm")), it.get("foodNm")),
         })
 
     PROC.mkdir(parents=True, exist_ok=True)
@@ -257,7 +277,8 @@ def main() -> None:
     cols = ["id", "name", "maker", "type", "size", "unit", "basisUnit", "single",
             "kcal", "protein", "sugar", "carb", "fat", "satFat", "transFat", "chol", "sodium",
             "caffeine", "created", "isNew", "image", "shape", "importer", "reportNo",
-            "fiber", "potassium", "tags", "sweet", "hasIngr", "taste"]
+            "fiber", "potassium", "tags", "sweet", "hasIngr", "taste", "major"]
+    major_groups = sorted({d["major"] for d in web if d["major"]})
     rows = []
     for d in web:
         p = d["per100"]
@@ -269,6 +290,7 @@ def main() -> None:
             d["caffeine_mg"], d["data_created"], 1 if d["is_new"] else 0, d["image"],
             shapes.index(d["shape"]), 1 if d["importer"] else 0, d["report_no"],
             p["fiber_g"], p["potassium_mg"], d["tags"], d["sweet"], 1 if d["ingredients"] else 0, d["taste"],
+            major_groups.index(d["major"]) if d["major"] else -1,
         ])
     # 원재료명 전문은 상세 화면에서만 필요 → 해시 샤드로 분리 (목록 로딩 가볍게)
     import hashlib
@@ -300,19 +322,20 @@ def main() -> None:
         "ingredientCount": sum(1 for d in web if d["ingredients"]),
         "tasteCount": sum(1 for d in web if d["taste"]),
         "fiberCount": sum(1 for d in web if d["per100"]["fiber_g"] is not None),
+        "majorCount": sum(1 for d in web if d["major"]),
     }
     WEB.mkdir(parents=True, exist_ok=True)
     (WEB / "drinks.min.json").write_text(json.dumps(
-        {"v": 2, "summary": summary, "cols": cols, "makers": makers, "types": types, "shapes": shapes,
+        {"v": 3, "summary": summary, "cols": cols, "makers": makers, "types": types, "shapes": shapes,
          "tagDefs": [[t, n] for t, n, _ in INGREDIENT_TAGS] + [[t, n] for t, n, _ in NAME_TAGS],
-         "sweetDefs": [[t, n] for t, n, _ in SWEETENERS], "rows": rows},
+         "sweetDefs": [[t, n] for t, n, _ in SWEETENERS], "majorGroups": major_groups, "rows": rows},
         ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     (PROC / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print(f"원천 {len(items)}개 → 웹 노출(바로 마시는 음료) {len(web)}개, 제외 {len(items)-len(web)}개")
     print(f"  1팩 기준 표시 {summary['singleServe']}개 ({summary['singleServe']/max(len(web),1):.0%}), 나머지 100ml(g) 기준")
     print(f"  신규 {summary['newCount']}개 (규칙: {summary['newRule']})")
-    print(f"  카페인 {summary['caffeineCount']}개, 이미지 {summary['imageCount']}개, 원재료 {summary['ingredientCount']}개, 맛 기록 {summary['tasteCount']}개, 식이섬유 값 {summary['fiberCount']}개")
+    print(f"  카페인 {summary['caffeineCount']}개, 이미지 {summary['imageCount']}개, 원재료 {summary['ingredientCount']}개, 맛 기록 {summary['tasteCount']}개, 식이섬유 값 {summary['fiberCount']}개, 대기업 브랜드 {summary['majorCount']}개")
     print(f"  웹 데이터 {(WEB / 'drinks.min.json').stat().st_size/1e6:.1f}MB")
 
 

@@ -1,6 +1,8 @@
 """제품 이미지 누끼 파이프라인 (10/12 결정: B안 — 제조사 공개 이미지 + 배경 제거).
 
-입력  data/images/sources.csv   컬럼: food_cd, source_url, collected_at, note
+입력  data/images/sources.csv   컬럼: food_cd, source_url, collected_at, note[, crop]
+      crop(선택) = "왼 위 오른 아래" 비율(0~1, 공백 구분). 묶음·연출 사진에서 제품 한 개만 잘라낼 때.
+      예) 0.45 0 1 1  → 오른쪽 55%만 사용
 처리  1) source_url 이미지를 data/images/source/<food_cd>.<ext> 로 저장 (이미 있으면 건너뜀)
       2) rembg 로 배경 제거 → 여백 정리 → 최대 600px WebP
 출력  web/public/img/<food_cd>.webp,  data/images/manifest.json {food_cd: 파일명}
@@ -21,6 +23,7 @@ SRC_CSV = ROOT / "data" / "images" / "sources.csv"
 SRC_DIR = ROOT / "data" / "images" / "source"
 OUT_DIR = ROOT / "web" / "public" / "img"
 MANIFEST = ROOT / "data" / "images" / "manifest.json"
+SIGS = ROOT / "data" / "images" / "signatures.json"  # url+crop 이 바뀌면 다시 처리
 MAX_PX = 600
 UA = "Mozilla/5.0 (deukgeun-drink image pipeline; KAIST class project)"
 
@@ -51,14 +54,27 @@ def main() -> None:
     rows = [r for r in csv.DictReader(SRC_CSV.open(encoding="utf-8")) if (r.get("food_cd") or "").strip() and (r.get("source_url") or "").strip()]
     session = new_session("u2net")
     manifest, ok, fail = {}, 0, []
+    old_sigs = json.loads(SIGS.read_text(encoding="utf-8")) if SIGS.exists() else {}
+    sigs = {}
     for r in rows:
         cd = r["food_cd"].strip()
         out = OUT_DIR / f"{cd}.webp"
+        url = r["source_url"].strip()
+        crop = (r.get("crop") or "").strip()
+        sig = f"{url}|{crop}"
         try:
             existing = sorted(SRC_DIR.glob(f"{cd}.*"))
-            src = existing[0] if existing else download(r["source_url"].strip(), SRC_DIR / cd)
-            if not out.exists() or out.stat().st_mtime < src.stat().st_mtime:
+            if existing and old_sigs.get(cd, sig).split("|")[0] != url:  # URL 교체 시 원본 다시 받기
+                for e in existing:
+                    e.unlink()
+                existing = []
+            src = existing[0] if existing else download(url, SRC_DIR / cd)
+            if not out.exists() or out.stat().st_mtime < src.stat().st_mtime or old_sigs.get(cd) != sig:
                 img = Image.open(src).convert("RGBA")
+                if crop:
+                    l, t, rr, b = [float(x) for x in crop.split()]
+                    W, H = img.size
+                    img = img.crop((int(l * W), int(t * H), int(rr * W), int(b * H)))
                 cut = remove(img, session=session)
                 bbox = cut.getbbox()
                 if bbox:
@@ -68,6 +84,7 @@ def main() -> None:
                 cut.save(buf, "WEBP", quality=88)
                 out.write_bytes(buf.getvalue())
             manifest[cd] = out.name
+            sigs[cd] = sig
             ok += 1
         except Exception as e:  # 한 장 실패해도 나머지는 진행
             fail.append(f"{cd}: {e}")
@@ -75,6 +92,7 @@ def main() -> None:
     for f in OUT_DIR.glob("*.webp"):
         if f.stem not in manifest:
             f.unlink()
+    SIGS.write_text(json.dumps(sigs, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
     MANIFEST.write_text(json.dumps(manifest, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
     print(f"이미지 {ok}개 처리, 실패 {len(fail)}개")
     for x in fail:
