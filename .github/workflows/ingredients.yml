@@ -5,7 +5,12 @@ name: Collect ingredients (원재료 분할 수집)
 on:
   schedule:
     - cron: "30 */2 * * *"   # 2시간마다
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      probe:
+        description: "API 파라미터 점검만 (4회 호출)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -25,13 +30,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Probe
+        if: ${{ inputs.probe }}
+        env:
+          FOODSAFETY_KEY: ${{ secrets.FOODSAFETY_KEY }}
+        run: python3 scripts/ingredients.py --probe
       - name: Ingredients (40분 제한)
+        if: ${{ !inputs.probe }}
         env:
           FOODSAFETY_KEY: ${{ secrets.FOODSAFETY_KEY }}
         run: python3 scripts/ingredients.py --workers 4 --max-minutes 40 | tail -3 | tee ingr.log
       - name: Normalize
+        if: ${{ !inputs.probe }}
         run: python3 scripts/normalize.py | tee normalize.log
       - name: Commit
+        if: ${{ !inputs.probe }}
         run: |
           git config user.name "data-bot"
           git config user.email "data-bot@users.noreply.github.com"

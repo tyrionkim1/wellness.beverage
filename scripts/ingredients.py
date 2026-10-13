@@ -68,13 +68,31 @@ def fetch(key: str, no: str):
     return {"error": str(last)}
 
 
+def probe(key: str) -> None:
+    """CHNG_DT(변경일자) 파라미터 동작 확인용 — 4회만 호출."""
+    base = "http://openapi.foodsafetykorea.go.kr/api/{k}/C002/json/1/3/{q}"
+    for q in ["PRDLST_REPORT_NO=2017038506015&CHNG_DT=19000101", "PRDLST_REPORT_NO=2017038506015/CHNG_DT=19000101",
+              "CHNG_DT=20261001", "CHNG_DT=20260101"]:
+        try:
+            with urllib.request.urlopen(base.format(k=key, q=q), timeout=30) as r:
+                j = json.loads(r.read().decode("utf-8", errors="replace"))
+            b = j.get("C002") or {}
+            rows = b.get("row") or []
+            print(q, "|", b.get("RESULT"), "| total", b.get("total_count"), "|", [(x.get("PRDLST_REPORT_NO"), x.get("CHNG_DT")) for x in rows][:3])
+        except Exception as e:
+            print(q, "| ERR", e)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=100000)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--max-minutes", type=float, default=0, help="이 시간이 지나면 저장하고 멈춤 (0=제한 없음). 남은 건 다음 실행")
+    ap.add_argument("--probe", action="store_true")
     a = ap.parse_args()
     key = os.environ.get("FOODSAFETY_KEY") or "sample"
+    if a.probe:
+        return probe(key)
     web = json.loads(WEB.read_text(encoding="utf-8"))
     ci = web["cols"].index("reportNo")
     # 국내 품목제조보고번호(숫자)만. 수입식품 번호(예: 24CN...)는 이 API에 없음
