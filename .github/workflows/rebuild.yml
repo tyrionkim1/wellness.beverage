@@ -48,4 +48,5 @@ jobs:
           git add data/images data/processed web/public
           if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
           git commit -m "data: 이미지·카페인 반영 $(date +%F)" -m "$(cat images.log normalize.log)"
+          git pull --rebase -X theirs origin main
           git push

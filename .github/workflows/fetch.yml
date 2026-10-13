@@ -30,7 +30,7 @@ jobs:
         continue-on-error: true   # 원재료 API 장애가 영양성분 갱신을 막지 않게
         env:
           FOODSAFETY_KEY: ${{ secrets.FOODSAFETY_KEY }}
-        run: python3 scripts/ingredients.py --workers 4 | tail -3
+        run: python3 scripts/ingredients.py --workers 4 --max-minutes 20 | tail -3
       - name: Normalize (원재료 태그 반영)
         run: python3 scripts/normalize.py | tee normalize.log
       - name: Commit
@@ -40,4 +40,5 @@ jobs:
           git add data/raw data/processed data/ingredients web/public/data
           if git diff --cached --quiet; then echo "변경 없음"; exit 0; fi
           git commit -m "data: 식약처 음료류 수집 $(date +%F)" -m "$(cat normalize.log)"
+          git pull --rebase -X theirs origin main
           git push

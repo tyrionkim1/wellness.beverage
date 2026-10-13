@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths: ["web/**", ".github/workflows/deploy.yml"]
   workflow_run:
-    workflows: ["Fetch MFDS data", "Rebuild data (images · caffeine)"]
+    workflows: ["Fetch MFDS data", "Rebuild data (images · caffeine)", "Collect ingredients (원재료 분할 수집)"]
     types: [completed]
   workflow_dispatch: {}
 

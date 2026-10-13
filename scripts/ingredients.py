@@ -72,6 +72,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=100000)
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--max-minutes", type=float, default=0, help="이 시간이 지나면 저장하고 멈춤 (0=제한 없음). 남은 건 다음 실행")
     a = ap.parse_args()
     key = os.environ.get("FOODSAFETY_KEY") or "sample"
     web = json.loads(WEB.read_text(encoding="utf-8"))
@@ -82,6 +83,7 @@ def main() -> None:
     todo = [n for n in nos if n not in cache or "error" in cache[n]][: a.limit]
     print(f"품목보고번호 {len(nos)}개 중 수집 대상 {len(todo)}개 (키: {'개인키' if key != 'sample' else 'sample'})")
     done = 0
+    t0 = time.time()
     with cf.ThreadPoolExecutor(max_workers=a.workers) as ex:
         futs = {ex.submit(fetch, key, n): n for n in todo}
         limited = 0
@@ -96,6 +98,11 @@ def main() -> None:
                     for f in futs:
                         f.cancel()
                     break
+            if a.max_minutes and time.time() - t0 > a.max_minutes * 60:
+                print(f"시간 제한 {a.max_minutes}분 — {done}건 처리 후 저장하고 멈춤 (남은 건 다음 실행)")
+                for f in futs:
+                    f.cancel()
+                break
             if done % 500 == 0:
                 save_cache(cache)
                 print(f"  {done}/{len(todo)}")
