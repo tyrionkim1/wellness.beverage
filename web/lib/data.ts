@@ -40,6 +40,7 @@ export type Drink = {
   sweet: number; // 감미료 비트 (sweetDefs 순서)
   hasIngr: boolean; // 원재료명 확보 여부
   taste: Taste | null;
+  major: string | null; // 대기업 브랜드 그룹명 (data/brands/major.csv, 키워드 판별 — 오판 가능)
   search: string; // 검색용 정규화 문자열
 };
 
@@ -63,6 +64,7 @@ export type Summary = {
   ingredientCount?: number;
   tasteCount?: number;
   fiberCount?: number;
+  majorCount?: number;
 };
 
 export type Dataset = {
@@ -70,6 +72,7 @@ export type Dataset = {
   types: string[];
   tagDefs: TagDef[];
   sweetDefs: TagDef[];
+  majorGroups: string[];
   drinks: Drink[];
   byId: Map<string, Drink>;
 };
@@ -127,6 +130,7 @@ function decode(j: any): Dataset {
   const types: string[] = j.types;
   const shapes: Shape[] = j.shapes;
   const has = (k: string) => k in c;
+  const majorGroups: string[] = j.majorGroups || [];
   const drinks: Drink[] = (j.rows as unknown[][]).map((r) => {
     const maker = makers[r[c.maker] as number] || "";
     const name = r[c.name] as string;
@@ -163,11 +167,12 @@ function decode(j: any): Dataset {
       sweet: has("sweet") ? (r[c.sweet] as number) || 0 : 0,
       hasIngr: has("hasIngr") ? r[c.hasIngr] === 1 : false,
       taste: has("taste") ? (r[c.taste] as Taste | null) : null,
+      major: has("major") && (r[c.major] as number) >= 0 ? majorGroups[r[c.major] as number] || null : null,
       search: normalize(`${name} ${maker}`),
     };
   });
   return {
-    summary: j.summary, types, tagDefs: j.tagDefs || [], sweetDefs: j.sweetDefs || [],
+    summary: j.summary, types, tagDefs: j.tagDefs || [], sweetDefs: j.sweetDefs || [], majorGroups,
     drinks, byId: new Map(drinks.map((d) => [d.id, d])),
   };
 }

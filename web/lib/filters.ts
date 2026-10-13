@@ -13,12 +13,14 @@ export type Filters = {
   sweet: string[]; // 감미료 포함 (하나라도)
   types: string[];
   bulk: boolean; // 500ml 초과 대용량 포함 여부
+  goals: string[]; // 목적 서베이(R9) — 하나라도 맞으면 통과
+  noMajor: boolean; // 대기업 브랜드 빼기 (major.csv 키워드 판별)
   sort: "recent" | "name";
 };
 
 export const EMPTY: Filters = {
   q: "", protein: null, sugar: null, kcal: null, fiber: null, caffeine: "",
-  feats: [], excl: [], sweet: [], types: [], bulk: true, sort: "recent",
+  feats: [], excl: [], sweet: [], types: [], bulk: true, goals: [], noMajor: false, sort: "recent",
 };
 
 export const PROTEIN_OPTS = [10, 15, 20, 25];
@@ -49,7 +51,10 @@ export const EXCLUDE_OPTS: { id: string; label: string; kind: "tag" | "sweet" }[
   { id: "animal", label: "동물성 원료 없음", kind: "tag" },
   { id: "caffeine_src", label: "카페인 원료 없음", kind: "tag" },
   { id: "sugar", label: "설탕·당류 원료 없음", kind: "sweet" },
+  { id: "artificial", label: "인공감미료 없음", kind: "sweet" },
+  { id: "carbonated", label: "탄산 없음", kind: "tag" },
 ];
+const ARTIFICIAL = ["sucralose", "acek", "aspartame"];
 export const SWEET_OPTS: { id: string; label: string }[] = [
   { id: "allulose", label: "알룰로스" },
   { id: "erythritol", label: "에리스리톨" },
@@ -82,13 +87,14 @@ export function presetActive(cur: Filters, p: Partial<Filters>): boolean {
   return (
     cur.protein === t.protein && cur.sugar === t.sugar && cur.kcal === t.kcal && cur.fiber === t.fiber &&
     cur.caffeine === t.caffeine && same(cur.types, t.types) && same(cur.feats, t.feats) &&
-    same(cur.excl, t.excl) && same(cur.sweet, t.sweet)
+    same(cur.excl, t.excl) && same(cur.sweet, t.sweet) && same(cur.goals, t.goals) && cur.noMajor === t.noMajor
   );
 }
 
 export function activeCount(f: Filters): number {
   return [f.protein, f.sugar, f.kcal, f.fiber].filter((v) => v !== null).length +
-    (f.caffeine ? 1 : 0) + f.feats.length + f.excl.length + f.sweet.length + f.types.length + (f.bulk ? 0 : 1);
+    (f.caffeine ? 1 : 0) + f.feats.length + f.excl.length + f.sweet.length + f.types.length + (f.bulk ? 0 : 1) +
+    f.goals.length + (f.noMajor ? 1 : 0);
 }
 
 export type FilterResult = { items: Drink[]; excludedNoInfo: number };
@@ -109,9 +115,14 @@ export function run(drinks: Drink[], f: Filters, tagDefs: TagDef[], sweetDefs: T
     return o?.kind === "tag" ? m | bit(tagDefs, id) : m;
   }, 0);
   const exSweet = f.excl.reduce((m, id) => {
+    if (id === "artificial") return ARTIFICIAL.reduce((mm, a) => mm | bit(sweetDefs, a), m);
     const o = EXCLUDE_OPTS.find((x) => x.id === id);
     return o?.kind === "sweet" ? m | bit(sweetDefs, id) : m;
   }, 0);
+  const exFizzType = f.excl.includes("carbonated");
+  const ELECTRO = bit(tagDefs, "electrolyte");
+  const COND = bit(tagDefs, "probiotic") | bit(tagDefs, "fiber_src");
+  const goalSet = new Set(f.goals);
   const needIngr = featMask !== 0 || sweetAny !== 0 || exTag !== 0 || exSweet !== 0;
   const lactoOnly = f.feats.length === 1 && f.feats[0] === "lactofree"; // 이름 태그는 원재료 없이도 판정 가능
 
@@ -121,6 +132,8 @@ export function run(drinks: Drink[], f: Filters, tagDefs: TagDef[], sweetDefs: T
     if (!f.bulk && !d.single) continue;
     if (typeSet && !typeSet.has(d.type)) continue;
     if (q && !d.search.includes(q)) continue;
+    if (f.noMajor && d.major) continue;
+    if (exFizzType && (d.type === "탄산음료" || d.type === "탄산수")) continue;
     const b = effectiveBasis(d, "pack");
     const checkMin = (v: number | null, min: number | null) => min === null || (v !== null && v >= min);
     const checkMax = (v: number | null, max: number | null) => max === null || (v !== null && v <= max);
@@ -134,6 +147,15 @@ export function run(drinks: Drink[], f: Filters, tagDefs: TagDef[], sweetDefs: T
       if (f.caffeine === "none" && v !== 0) continue;
       if (f.caffeine === "low" && !(v > 0 && v <= 50)) continue;
       if (f.caffeine === "high" && !(v > 50)) continue;
+    }
+    if (goalSet.size) {
+      const p = vals.p ?? -1, k = vals.k, s = vals.s, fb = vals.fb ?? -1;
+      const ok =
+        (goalSet.has("muscle") && p >= 10) ||
+        (goalSet.has("weight") && k !== null && k <= 100 && s !== null && s <= 5) ||
+        (goalSet.has("recovery") && (p >= 10 || (d.tags & ELECTRO) !== 0)) ||
+        (goalSet.has("condition") && ((d.tags & COND) !== 0 || fb >= 3));
+      if (!ok) continue;
     }
     if (needIngr) {
       if (!d.hasIngr && !lactoOnly) { excludedNoInfo++; continue; }
@@ -163,6 +185,8 @@ export function toQuery(f: Filters): string {
   if (f.sweet.length) p.set("sw", f.sweet.join(","));
   if (f.types.length) p.set("t", f.types.join(","));
   if (!f.bulk) p.set("bulk", "0");
+  if (f.goals.length) p.set("g", f.goals.join(","));
+  if (f.noMajor) p.set("nm", "1");
   if (f.sort !== "recent") p.set("sort", f.sort);
   const s = p.toString();
   return s ? `?${s}` : "";
@@ -183,6 +207,7 @@ export function fromQuery(sp: URLSearchParams): Filters {
     caffeine: c === "none" || c === "low" || c === "high" ? c : "",
     feats: list("f"), excl: list("x"), sweet: list("sw"), types: list("t"),
     bulk: sp.get("bulk") !== "0",
+    goals: list("g"), noMajor: sp.get("nm") === "1",
     sort: sp.get("sort") === "name" ? "name" : "recent",
   };
 }
