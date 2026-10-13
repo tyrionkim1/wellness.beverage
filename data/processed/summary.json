@@ -9,7 +9,7 @@
   "newRule": "created30",
   "latestCreated": "2026-08-31",
   "caffeineCount": 0,
-  "imageCount": 0,
+  "imageCount": 6,
   "byType": {
     "액상음료": 6773,
     "과·채주스": 6662,
@@ -26,5 +26,6 @@
   },
   "ingredientCount": 1768,
   "tasteCount": 0,
-  "fiberCount": 996
+  "fiberCount": 996,
+  "majorCount": 3040
 }
