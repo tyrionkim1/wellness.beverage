@@ -49,9 +49,9 @@ def fetch(key: str, no: str):
             rows = body.get("row") or []
             if code == "INFO-200":  # 해당 데이터 없음 (확정)
                 return {"raw": None, "checked": datetime.date.today().isoformat()}
-            if code in ("INFO-300", "INFO-310", "INFO-100", "ERROR-300", "ERROR-310"):
+            if code in ("INFO-300", "INFO-310", "INFO-320", "INFO-100", "ERROR-300", "ERROR-310"):
                 # 인증키 오류·호출 한도 초과 → 재시도해도 소용없음. 다음 실행 때 다시 조회
-                return {"error": code, "limit": True}
+                return {"error": code, "limit": True, "msg": (body.get("RESULT") or {}).get("MSG", "")[:80]}
             if not code.startswith("INFO-000") or not rows:
                 raise RuntimeError(code or "empty")
             # 같은 번호로 여러 행이면 가장 최근 변경본
@@ -94,7 +94,7 @@ def main() -> None:
             if r.get("limit"):
                 limited += 1
                 if limited >= 20:  # 한도 초과가 이어지면 이번 실행 중단 (남은 건 다음 실행)
-                    print(f"호출 한도 초과({r.get('error')}) — {done}건 처리 후 중단. 개인 인증키(FOODSAFETY_KEY)를 넣으면 한도가 늘어납니다.")
+                    print(f"API 거부({r.get('error')}: {r.get('msg')}) — {done}건 처리 후 중단. 남은 건 다음 실행")
                     for f in futs:
                         f.cancel()
                     break
