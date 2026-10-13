@@ -1,10 +1,11 @@
 name: Collect ingredients (원재료 분할 수집)
 
-# 원재료 API는 건당 1~2초라 한 번에 2만 건을 돌리면 몇 시간 걸린다.
-# 40분씩 끊어서 수집하고 그때마다 커밋 → 중간에 끊겨도 진행분이 남는다. 다 모이면 '변경 없음'으로 빨리 끝남.
+# 식품안전나라 C002 는 품목보고번호 조회를 '1시간당 100회'로 제한한다 (INFO-320).
+# (CHNG_DT 증분 조회는 최근 7일만 가능 → 과거분 일괄 수집 불가)
+# → 매시간 95건씩, 페르소나가 많이 볼 제품부터 수집. 약 2.2만 건 = 약 10일. 다 모이면 '변경 없음'으로 빨리 끝남.
 on:
   schedule:
-    - cron: "30 */2 * * *"   # 2시간마다
+    - cron: "17 * * * *"   # 매시간
   workflow_dispatch:
     inputs:
       probe:
@@ -22,7 +23,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,11 +36,11 @@ jobs:
         env:
           FOODSAFETY_KEY: ${{ secrets.FOODSAFETY_KEY }}
         run: python3 scripts/ingredients.py --probe
-      - name: Ingredients (40분 제한)
+      - name: Ingredients (시간당 95건)
         if: ${{ !inputs.probe }}
         env:
           FOODSAFETY_KEY: ${{ secrets.FOODSAFETY_KEY }}
-        run: python3 scripts/ingredients.py --workers 4 --max-minutes 40 | tail -3 | tee ingr.log
+        run: python3 scripts/ingredients.py --workers 2 --limit 95 --max-minutes 15 | tail -3 | tee ingr.log
       - name: Normalize
         if: ${{ !inputs.probe }}
         run: python3 scripts/normalize.py | tee normalize.log

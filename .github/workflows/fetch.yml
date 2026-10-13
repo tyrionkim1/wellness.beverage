@@ -32,7 +32,7 @@ jobs:
         continue-on-error: true   # 원재료 API 장애가 영양성분 갱신을 막지 않게
         env:
           FOODSAFETY_KEY: ${{ secrets.FOODSAFETY_KEY }}
-        run: python3 scripts/ingredients.py --workers 4 --max-minutes 20 | tail -3
+        run: python3 scripts/ingredients.py --workers 2 --limit 95 --max-minutes 15 | tail -3
       - name: Normalize (원재료 태그 반영)
         run: python3 scripts/normalize.py | tee normalize.log
       - name: Commit

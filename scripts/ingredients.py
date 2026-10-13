@@ -94,11 +94,25 @@ def main() -> None:
     if a.probe:
         return probe(key)
     web = json.loads(WEB.read_text(encoding="utf-8"))
-    ci = web["cols"].index("reportNo")
+    cols = web["cols"]
+    ci = cols.index("reportNo")
+    ix = {k: i for i, k in enumerate(cols)}
     # 국내 품목제조보고번호(숫자)만. 수입식품 번호(예: 24CN...)는 이 API에 없음
     nos = sorted({str(r[ci]).strip() for r in web["rows"] if r[ci] and re.fullmatch(r"\d{8,16}", str(r[ci]).strip())})
+    # 우선순위: API가 시간당 100건만 허용하므로 페르소나가 많이 볼 제품부터
+    #  1팩 제품 > 단백질 10g↑ > 대기업 아님 > 최근 등록
+    prio = {}
+    for r in web["rows"]:
+        no = str(r[ci] or "").strip()
+        if no not in prio and re.fullmatch(r"\d{8,16}", no):
+            size = r[ix["size"]] or 0
+            p = (r[ix["protein"]] or 0) * size / 100 if r[ix["single"]] else 0
+            major = "major" in ix and r[ix["major"]] is not None and r[ix["major"]] >= 0
+            prio[no] = ((1 if r[ix["single"]] else 0) * 4 + (2 if p >= 10 else 0) + (0 if major else 1), r[ix["created"]] or "")
     cache = load_cache()
-    todo = [n for n in nos if n not in cache or "error" in cache[n]][: a.limit]
+    todo = [n for n in nos if n not in cache or "error" in cache[n]]
+    todo.sort(key=lambda n: prio.get(n, (0, "")), reverse=True)
+    todo = todo[: a.limit]
     print(f"품목보고번호 {len(nos)}개 중 수집 대상 {len(todo)}개 (키: {'개인키' if key != 'sample' else 'sample'})")
     done = 0
     t0 = time.time()
