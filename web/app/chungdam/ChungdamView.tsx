@@ -5,12 +5,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Pack from "@/components/Pack";
+import { ga, useGA } from "./ga";
 import { Dataset, Drink, TagDef, effectiveBasis, fmtNum, fmtSize, hasTag, loadData, nut } from "@/lib/data";
 
 // ---- 설정 ----
 const ENDPOINT =
   "https://script.google.com/macros/s/AKfycbzhiqqWMEPkYDrEnMOFhdNEB4U1Q_E44JAEa6OkVR7QATYhM9s5tNb4Kqh4D4INXALl/exec";
-const GA_ID = "G-Q7ECW3DL2Y"; // 웰니스 GA4 속성
 const PAGE = 24;
 
 type GoalKey = "sugar" | "fat" | "protein" | "plant" | "decaf";
@@ -60,28 +60,6 @@ const SORTS: { key: SortKey; label: string }[] = [
 
 const SUGAR_MAX = 10; // 슬라이더 끝값 = 제한 없음
 const ARTIFICIAL = ["sucralose", "acek", "aspartame"];
-
-// ---- GA ----
-declare global {
-  interface Window { dataLayer?: unknown[]; gtag?: (...a: unknown[]) => void }
-}
-function ga(event: string, params: Record<string, unknown> = {}) {
-  try { window.gtag?.("event", event, { variant: "wellness", page: "chungdam_mvp", ...params }); } catch { /* noop */ }
-}
-function useGA() {
-  useEffect(() => {
-    if (window.gtag) return;
-    const s = document.createElement("script");
-    s.async = true;
-    s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
-    document.head.appendChild(s);
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = function gtag() { window.dataLayer!.push(arguments); }; // eslint-disable-line prefer-rest-params
-    window.gtag("js", new Date());
-    window.gtag("config", GA_ID, { content_group: "wellness" });
-    ga("landing_view");
-  }, []);
-}
 
 // ---- 필터 ----
 function hasSweet(d: Drink, defs: TagDef[], id: string) {
@@ -139,7 +117,7 @@ function runFilter(ds: Dataset, conds: Set<CondKey>, sugarMax: number, sort: Sor
 
 // ---- 화면 ----
 export default function ChungdamView() {
-  useGA();
+  useGA("landing_view");
   const [ds, setDs] = useState<Dataset | null>(null);
   const [err, setErr] = useState(false);
   const [goals, setGoals] = useState<Set<GoalKey>>(new Set());
