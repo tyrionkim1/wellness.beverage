@@ -7,7 +7,7 @@ import { Dataset, Drink, effectiveBasis, fmtNum, hasTag, loadData, normalize, nu
 import { ga, useGA } from "./ga";
 import {
   ARTIFICIAL, DrinkCard, LOW_SUGAR, PROTEIN_PACK, Shell, UpdateStrip,
-  hasSweet, img, isConcentrate, notProteinComparable,
+  Picto, hasSweet, isConcentrate, notProteinComparable,
 } from "./shared";
 
 const ENDPOINT =
@@ -51,10 +51,10 @@ const GOAL_PRESET: Record<GoalKey, { conds: CondKey[]; sort: SortKey; sugarMax?:
   decaf: { conds: ["noCaffeine"], sort: "sugar" },
 };
 const CARDS: { goal: GoalKey; title: string; desc: string; img: string }[] = [
-  { goal: "sugar", title: "당류를 줄이고 싶을 때", desc: "100ml당 당류 2.5g 미만부터", img: "photo-1667857410842-ce0a0069acb1" },
-  { goal: "protein", title: "단백질을 보충하고 싶을 때", desc: "1팩 단백질 10g 이상 · 당류 5g 이하", img: "photo-1596633605700-1efc9b49e277" },
-  { goal: "plant", title: "식물성 음료를 찾을 때", desc: "식물성 단백 원료 · 유제품 원료 없음", img: "photo-1615485737457-f07082c77813" },
-  { goal: "decaf", title: "카페인을 줄이고 싶을 때", desc: "원재료에 카페인 원료가 없는 음료", img: "photo-1498604636225-6b87a314baa0" },
+  { goal: "sugar", title: "당류를 줄이고 싶을 때", desc: "100ml당 당류 2.5g 미만부터", img: "sugar" },
+  { goal: "protein", title: "단백질을 보충하고 싶을 때", desc: "1팩 단백질 10g 이상 · 당류 5g 이하", img: "protein" },
+  { goal: "plant", title: "식물성 음료를 찾을 때", desc: "식물성 단백 원료 · 유제품 원료 없음", img: "plant" },
+  { goal: "decaf", title: "카페인을 줄이고 싶을 때", desc: "원재료에 카페인 원료가 없는 음료", img: "decaf" },
 ];
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "new", label: "최근 등록순" },
@@ -255,7 +255,7 @@ export default function ChungdamView() {
           <div className="cd-cards">
             {CARDS.map((c) => (
               <button key={c.goal} type="button" className="cd-gcard" onClick={() => pickCard(c.goal)}>
-                <span className="cd-gimg"><img src={img(c.img)} alt="" loading="lazy" /></span>
+                <span className="cd-gimg"><Picto kind={c.img} /></span>
                 <span className="cd-gtxt"><b>{c.title}</b><small>{c.desc}</small></span>
                 <span className="cd-garrow" aria-hidden="true">→</span>
               </button>

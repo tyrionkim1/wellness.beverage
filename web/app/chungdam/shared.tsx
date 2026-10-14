@@ -106,19 +106,19 @@ export type Sampler = { slug: string; name: string; desc: string; who: string; c
 // 구성은 운영자가 카테고리 기준 충족 · 원재료 확인 · 1팩 단위 음료 중에서 고른 예시 (관리자 기능 전까지 코드로 관리)
 export const SAMPLERS: Sampler[] = [
   {
-    slug: "low-sugar", name: "저당 드링크 셀렉션", category: "저당", price: 15900, img: "photo-1667857410842-ce0a0069acb1",
+    slug: "low-sugar", name: "저당 드링크 셀렉션", category: "저당", price: 15900, img: "sugar",
     desc: "100ml당 당류 2.5g 미만 음료를 서로 다른 브랜드·유형으로 5종 골랐어요.", who: "단 음료를 줄이고 싶지만 어떤 맛이 있는지 궁금한 분",
     rule: "100ml당 당류 2.5g 미만 · 서로 다른 브랜드 · 차·커피·식물성·이온음료 등 유형 다양화",
     items: ["P109-801080100-5431", "P109-801080100-2353", "P109-201020000-2911", "P109-801080100-3828", "P109-801080100-1519"],
   },
   {
-    slug: "protein", name: "프로틴 테이스팅 키트", category: "단백질", price: 19900, img: "photo-1596633605700-1efc9b49e277",
+    slug: "protein", name: "프로틴 테이스팅 키트", category: "단백질", price: 19900, img: "protein",
     desc: "1팩 단백질 20g 안팎, 당류 2g 이하 음료 5종을 브랜드별로 비교해 마셔보세요.", who: "단백질 음료를 박스로 사기 전에 여러 브랜드를 맛보고 싶은 분",
     rule: "1팩 단백질 10g 이상 · 100ml당 당류 5g 이하 · 서로 다른 브랜드 · 유청·닭가슴살·대두 등 원료 다양화",
     items: ["P109-801080100-1548", "P109-801080100-3645", "P109-801080100-5785", "P109-201020000-1167", "P109-500050200-0328"],
   },
   {
-    slug: "basic", name: "웰니스 베이직 샘플러", category: "카테고리 혼합", price: 19900, img: "photo-1615485737457-f07082c77813",
+    slug: "basic", name: "웰니스 베이직 샘플러", category: "카테고리 혼합", price: 19900, img: "mix",
     desc: "식물성·락토프리·카페인 원료 없는 음료를 고루 섞었어요.", who: "어떤 음료가 맞을지 아직 모르는 분",
     rule: "모두 100ml당 당류 1g 미만 · 식물성 단백, 락토프리 표기, 카페인 원료 없음 카테고리에서 1~2종씩",
     items: ["P109-801080100-3828", "P109-500050200-0127", "P109-801080100-3353", "P109-500050200-0368", "P109-102010200-0663"],
@@ -131,8 +131,36 @@ export function samplerItems(ds: Dataset, slug: string): Drink[] {
 }
 export const samplersWith = (ds: Dataset, id: string) => SAMPLERS.filter((s) => samplerItems(ds, s.slug).some((d) => d.id === id));
 
-export const img = (id: string, w = 640) => `https://images.unsplash.com/${id}?w=${w}&q=70&auto=format&fit=crop`;
 export const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;
+
+// ---- 픽토그램 (실사 사진 대신, 라인 아이콘) ----
+export type PictoKind = "sugar" | "protein" | "plant" | "decaf" | "mix";
+export function Picto({ kind }: { kind: string }) {
+  const c = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  return (
+    <svg viewBox="0 0 64 64" aria-hidden="true" className="cd-picto">
+      {kind === "sugar" ? (<>
+        {/* 각설탕 + 아래 화살표 */}
+        <path {...c} d="M14 26l12-6 12 6v14l-12 6-12-6z" /><path {...c} d="M14 26l12 6 12-6M26 32v14" />
+        <path {...c} d="M48 18v24M42 36l6 6 6-6" />
+      </>) : kind === "protein" ? (<>
+        {/* 셰이커 */}
+        <path {...c} d="M22 14h20l-2 6H24z" /><path {...c} d="M24 20l2 32h12l2-32" /><path {...c} d="M26 30h12" />
+        <path {...c} d="M29 38h6M32 35v6" />
+      </>) : kind === "plant" ? (<>
+        {/* 잎 */}
+        <path {...c} d="M18 46C18 28 30 16 48 16c0 18-12 30-30 30z" /><path {...c} d="M18 46l20-20" /><path {...c} d="M14 50l4-4" />
+      </>) : kind === "decaf" ? (<>
+        {/* 커피잔 + 사선 */}
+        <path {...c} d="M16 26h26v10a12 12 0 0 1-12 12h-2a12 12 0 0 1-12-12z" /><path {...c} d="M42 30h4a5 5 0 0 1 0 10h-5" />
+        <path {...c} d="M24 14c-2 3 2 5 0 8M32 14c-2 3 2 5 0 8" /><path {...c} d="M12 52L52 12" />
+      </>) : (<>
+        {/* 병 세 개 */}
+        <path {...c} d="M14 24h10v26H14zM16 18h6v6h-6z" /><path {...c} d="M27 20h10v30H27zM29 14h6v6h-6z" /><path {...c} d="M40 26h10v24H40zM42 20h6v6h-6z" />
+      </>)}
+    </svg>
+  );
+}
 
 // ---- 공용 UI (배치는 득근음료와 동일: 헤더 4메뉴 · 업데이트 줄 · 카드 그리드 · 하단 고지) ----
 export type NavKey = "find" | "rank" | "sampler" | "about";
