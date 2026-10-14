@@ -7,7 +7,7 @@ import { Dataset, Drink, effectiveBasis, fmtNum, hasTag, loadData, normalize, nu
 import { ga, useGA } from "./ga";
 import {
   ARTIFICIAL, DrinkCard, LOW_SUGAR, PROTEIN_PACK, Shell, UpdateStrip,
-  Picto, hasSweet, isConcentrate, notProteinComparable,
+  Photo, hasSweet, isConcentrate, notProteinComparable,
 } from "./shared";
 
 const ENDPOINT =
@@ -180,11 +180,16 @@ export default function ChungdamView() {
     <Shell active="find">
       <section className="cd-hero">
         <div className="cd-wrap">
-          <h1>매일 마시는 한 잔, 기준 있게.</h1>
-          <p className="cd-lead">당류부터 단백질, 원재료까지. 복잡한 음료 성분을 쉽게 비교하고 나에게 맞는 한 잔을 찾아보세요.</p>
-          <div className="cd-hero-cta">
-            <button type="button" className="cd-btn" onClick={() => scrollTo(document.getElementById("finder"))}>내게 맞는 음료 찾기</button>
-            <button type="button" className="cd-btn ghost" onClick={() => { ga("signup_start", { from: "hero" }); scrollTo(signRef.current); }}>출시 알림 받기</button>
+          <div className="cd-hero-grid">
+            <div>
+              <h1>매일 마시는 한 잔, 기준 있게.</h1>
+              <p className="cd-lead">당류부터 단백질, 원재료까지. 복잡한 음료 성분을 쉽게 비교하고 나에게 맞는 한 잔을 찾아보세요.</p>
+              <div className="cd-hero-cta">
+                <button type="button" className="cd-btn" onClick={() => scrollTo(document.getElementById("finder"))}>내게 맞는 음료 찾기</button>
+                <button type="button" className="cd-btn ghost" onClick={() => { ga("signup_start", { from: "hero" }); scrollTo(signRef.current); }}>출시 알림 받기</button>
+              </div>
+            </div>
+            <span className="cd-hero-img"><Photo kind="hero" w={900} /></span>
           </div>
         </div>
       </section>
@@ -198,21 +203,21 @@ export default function ChungdamView() {
             <input type="search" placeholder="제품명 · 제조사 검색" value={q} onChange={(e) => { setQ(e.target.value); setShown(PAGE); }} aria-label="제품명 또는 제조사 검색" />
           </label>
           <div className="cd-finder">
-            <h2>나에게 맞는 음료 찾기</h2>
-            <p className="cd-sub">선택한 조건을 모두 만족하는 음료만 아래 목록에 바로 보여드려요.</p>
+            <h2>어떤 음료를 찾고 있나요?</h2>
+            <p className="cd-sub">목표를 선택해 보세요. 복수 선택이 가능합니다. 선택한 조건을 모두 만족하는 음료만 보여드려요.</p>
             <div className="cd-group">
-              <h3>나의 목표 <span>복수 선택</span></h3>
+              <h3>나의 목표</h3>
               <div className="cd-chips">
                 {GOALS.map((g) => (
-                  <button key={g.key} type="button" aria-pressed={goals.has(g.key)} className={`cd-chip${goals.has(g.key) ? " on" : ""}`} onClick={() => toggleGoal(g.key)}>{g.label}</button>
+                  <button key={g.key} type="button" aria-pressed={goals.has(g.key)} className={`cd-chip${goals.has(g.key) ? " on" : ""}`} onClick={() => toggleGoal(g.key)}>{goals.has(g.key) ? "✓ " : ""}{g.label}</button>
                 ))}
               </div>
             </div>
             <div className="cd-group">
-              <h3>원하는 조건</h3>
+              <h3>원하는 조건 <span>복수 선택</span></h3>
               <div className="cd-chips">
                 {CONDS.map((c) => (
-                  <button key={c.key} type="button" aria-pressed={f.conds.has(c.key)} className={`cd-chip${f.conds.has(c.key) ? " on" : ""}`} onClick={() => upd({ conds: toggleSet(f.conds, c.key) })}>{c.label}</button>
+                  <button key={c.key} type="button" aria-pressed={f.conds.has(c.key)} className={`cd-chip${f.conds.has(c.key) ? " on" : ""}`} onClick={() => upd({ conds: toggleSet(f.conds, c.key) })}>{f.conds.has(c.key) ? "✓ " : ""}{c.label}</button>
                 ))}
               </div>
             </div>
@@ -251,11 +256,12 @@ export default function ChungdamView() {
       {/* 4-3 목표별 추천 (득근의 PRESET 자리) */}
       <section className="cd-sec">
         <div className="cd-wrap">
-          <p className="cd-label">목표별 추천</p>
+          <h2 className="cd-h2">목표별 추천</h2>
+          <p className="cd-sub">목표에 맞는 조건을 한 번에 적용해 보세요.</p>
           <div className="cd-cards">
             {CARDS.map((c) => (
               <button key={c.goal} type="button" className="cd-gcard" onClick={() => pickCard(c.goal)}>
-                <span className="cd-gimg"><Picto kind={c.img} /></span>
+                <span className="cd-gimg"><Photo kind={c.img} w={600} /></span>
                 <span className="cd-gtxt"><b>{c.title}</b><small>{c.desc}</small></span>
                 <span className="cd-garrow" aria-hidden="true">→</span>
               </button>

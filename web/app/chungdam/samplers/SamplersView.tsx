@@ -2,7 +2,7 @@
 // 샘플러 목록 (요구사항 7.2) — 판매 전이므로 '출시 준비 중' + 출시 알림. 가격은 가설(예상가).
 import Link from "next/link";
 import { ga, useGA } from "../ga";
-import { SAMPLERS, Shell, Picto, won } from "../shared";
+import { SAMPLERS, Shell, Photo, won } from "../shared";
 
 export default function SamplersView() {
   useGA("sampler_list_view");
@@ -16,7 +16,7 @@ export default function SamplersView() {
         <div className="cd-samplers list">
           {SAMPLERS.map((s) => (
             <Link key={s.slug} href={`/chungdam/samplers/s/?slug=${s.slug}`} className="cd-scard">
-              <span className="cd-simg"><Picto kind={s.img} /><i>출시 준비 중</i></span>
+              <span className="cd-simg"><Photo kind={s.img} /><i>출시 준비 중</i></span>
               <span className="cd-stxt">
                 <small>{s.category} · 구성 {s.items.length}종</small>
                 <b>{s.name}</b>

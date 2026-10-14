@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Dataset, loadData } from "@/lib/data";
 import { ga, useGA } from "../../ga";
-import { DrinkCard, SAMPLERS, Shell, Picto, samplerItems, won } from "../../shared";
+import { DrinkCard, SAMPLERS, Shell, Photo, samplerItems, won } from "../../shared";
 
 export default function SamplerDetail() {
   const slug = useSearchParams().get("slug") || "";
@@ -22,7 +22,7 @@ export default function SamplerDetail() {
       <main className="cd-wrap cd-page">
         <Link href="/chungdam/samplers/" className="cd-back">← 샘플러 목록</Link>
         <div className="cd-shero">
-          <span className="cd-simg big"><Picto kind={s.img} /><i>출시 준비 중</i></span>
+          <span className="cd-simg big"><Photo kind={s.img} /><i>출시 준비 중</i></span>
           <div>
             <p className="cd-eyebrow">{s.category} 샘플러</p>
             <h1 className="cd-ptitle">{s.name}</h1>
