@@ -8,15 +8,11 @@ import {
   Basis, Dataset, Drink, NUT_KEYS, NUT_LABEL, dvPercent, effectiveBasis, fmtDate, fmtNum, fmtSize,
   loadData, loadIngredients, nut, sweetNames, tagNames,
 } from "@/lib/data";
-
-function ga(event: string, params: Record<string, unknown> = {}) {
-  try {
-    (window as unknown as { gtag?: (...a: unknown[]) => void }).gtag?.("event", event, { variant: "wellness", page: "chungdam_mvp", ...params });
-  } catch { /* noop */ }
-}
+import { ga, useGA } from "../ga";
 
 export default function ChungdamDetail() {
   const id = useSearchParams().get("id") || "";
+  useGA();
   const [ds, setDs] = useState<Dataset | null>(null);
   const [basis, setBasis] = useState<Basis>("pack");
   const [ingr, setIngr] = useState<[string, string] | null | undefined>(undefined);
