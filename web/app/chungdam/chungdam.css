@@ -347,3 +347,13 @@ img.cd-pack.hero { padding: 24px; }
   .cd-nav a { padding: 8px 8px; font-size: 13px; }
 }
 @media (max-width: 400px) { .cd-nav a[href*="#finder"] { display: inline-flex; } }
+
+/* 픽토그램 (실사 사진 대체) */
+.cd-gimg, .cd-simg { display: grid; place-items: center; background: #f1ebe2; color: var(--cd-brown); }
+.cd-picto { width: 38%; max-width: 96px; height: auto; }
+.cd-gimg { aspect-ratio: 16 / 9; }
+.cd-simg.big .cd-picto { width: 32%; max-width: 160px; }
+.cd-gcard:nth-child(2) .cd-gimg, .cd-scard:nth-child(2) .cd-simg { background: #ece6dc; }
+.cd-gcard:nth-child(3) .cd-gimg, .cd-scard:nth-child(3) .cd-simg { background: #e8ece0; color: #5e6b4a; }
+.cd-gcard:nth-child(4) .cd-gimg { background: #efe6e0; color: #7a5a4a; }
+.cd-simg:not(.big) { aspect-ratio: 16 / 9; }
