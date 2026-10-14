@@ -373,7 +373,7 @@ function DrinkCard({ d, ds }: { d: Drink; ds: Dataset }) {
   const v = (k: "sugar" | "protein" | "kcal") => nut(d, k, b);
   return (
     <li className="cd-item">
-      <Link href={`/p/?id=${encodeURIComponent(d.id)}`} onClick={() => ga("product_view", { id: d.id, name: d.name })}>
+      <Link href={`/chungdam/p/?id=${encodeURIComponent(d.id)}`} onClick={() => ga("product_view", { id: d.id, name: d.name })}>
         <Pack d={d} className="cd-pack" />
         <span className="cd-info">
           <small>{d.maker || "제조사 정보 없음"}</small>

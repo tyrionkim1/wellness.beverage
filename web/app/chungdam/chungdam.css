@@ -128,3 +128,24 @@ img.cd-pack { object-fit: contain; padding: 6px; }
   .cd-gtxt { padding: 12px; }
   .cd-gtxt b { font-size: 14px; }
 }
+
+/* detail (/chungdam/p/) */
+.cd-nav a { padding: 8px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--cd-sub); }
+.cd-nav a:hover { color: var(--cd-ink); background: var(--cd-sel); }
+.cd-detail { padding-top: 20px; padding-bottom: 12px; }
+.cd .cd-back { padding: 6px 0; margin-bottom: 14px; font-size: 14px; font-weight: 600; color: var(--cd-sub); }
+.cd-dhead { display: flex; gap: 18px; align-items: center; margin-bottom: 20px; }
+.cd-pack.big { width: 112px; height: 140px; border-radius: 18px; }
+.cd-pack.big svg { width: 64px; height: 108px; }
+.cd-dname { margin: 2px 0 4px; font-size: 22px; font-weight: 800; line-height: 1.3; letter-spacing: -0.6px; word-break: keep-all; }
+.cd-dcard { background: var(--cd-card); border: 1px solid var(--cd-line); border-radius: 22px; padding: 22px 20px; margin-bottom: 14px; }
+.cd-dcard .cd-h2 { margin-bottom: 10px; }
+.cd-nut { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+.cd-nut th, .cd-nut td { padding: 10px 0; border-bottom: 1px solid var(--cd-line); text-align: left; }
+.cd-nut th { font-weight: 600; }
+.cd-nut td { text-align: right; font-weight: 700; }
+.cd-nut td i { font-style: normal; font-weight: 500; color: var(--cd-sub); margin-left: 2px; }
+.cd-nut td.pct { width: 64px; color: var(--cd-brown); font-weight: 600; font-size: 13px; }
+.cd-nut tr.sub th { padding-left: 14px; font-weight: 500; color: var(--cd-sub); }
+.cd-nut .na { font-weight: 500; color: var(--cd-dim); }
+.cd-ingr { margin: 0; font-size: 14px; line-height: 1.75; color: var(--cd-ink); word-break: keep-all; }
