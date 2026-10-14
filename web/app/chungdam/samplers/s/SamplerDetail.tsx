@@ -40,7 +40,7 @@ export default function SamplerDetail() {
 
         <h2 className="cd-h2">구성 음료</h2>
         {!ds ? <div className="cd-empty">불러오는 중…</div> : (
-          <ul className="cd-list">{items.map((d) => <DrinkCard key={d.id} d={d} ds={ds} from={`sampler_${s.slug}`} />)}</ul>
+          <ul className="cd-grid">{items.map((d) => <DrinkCard key={d.id} d={d} ds={ds} from={`sampler_${s.slug}`} />)}</ul>
         )}
         <p className="cd-note">구성 기준: {s.rule}. 원재료가 확인된 1팩 단위 음료 중에서 고른 예시예요. 각 음료를 누르면 영양성분·원재료·알레르기 유발 원료(원재료명 표기)를 확인할 수 있어요. 실제 판매 전 구성은 바뀔 수 있습니다.</p>
       </main>

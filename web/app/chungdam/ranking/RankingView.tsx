@@ -52,7 +52,7 @@ export default function RankingView() {
         {!r ? <div className="cd-empty">불러오는 중…</div> : (
           <>
             <p className="cd-res-meta">기준을 충족한 음료 <b>{r.list.length.toLocaleString("ko-KR")}</b>개 중 상위 {Math.min(TOP, r.list.length)}개</p>
-            <ul className="cd-list">{r.list.slice(0, TOP).map((d, i) => <DrinkCard key={d.id} d={d} ds={ds!} rankNo={i + 1} from={`ranking_${k}`} />)}</ul>
+            <ul className="cd-grid">{r.list.slice(0, TOP).map((d, i) => <DrinkCard key={d.id} d={d} ds={ds!} rankNo={i + 1} from={`ranking_${k}`} />)}</ul>
           </>
         )}
         <p className="cd-note">랭킹은 표시된 성분 수치의 순서일 뿐 제품의 품질·효능 평가가 아닙니다. 사용자 조회·저장 데이터가 쌓이면 인기순을 별도로 제공할 예정이에요. 향후 광고 상품은 랭킹과 분리해 광고임을 표시합니다.</p>
