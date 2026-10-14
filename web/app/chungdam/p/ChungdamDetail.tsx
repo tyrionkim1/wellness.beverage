@@ -10,7 +10,7 @@ import {
 } from "@/lib/data";
 import { GLOSSARY } from "@/lib/glossary";
 import { ga, useGA } from "../ga";
-import { Shell, Stat, evidenceTags, Picto, samplersWith, won } from "../shared";
+import { Shell, Stat, evidenceTags, Photo, samplersWith, won } from "../shared";
 
 // 원재료명 표기에서 찾는 알레르기 유발 원료(참고용). 포장 표시가 우선.
 const ALLERGENS: [string, RegExp][] = [
@@ -170,7 +170,7 @@ export default function ChungdamDetail() {
             <div className="cd-samplers mini">
               {samplers.map((s) => (
                 <Link key={s.slug} href={`/chungdam/samplers/s/?slug=${s.slug}`} className="cd-scard">
-                  <span className="cd-simg"><Picto kind={s.img} /><i>출시 준비 중</i></span>
+                  <span className="cd-simg"><Photo kind={s.img} /><i>출시 준비 중</i></span>
                   <span className="cd-stxt"><b>{s.name}</b><em>예상가 {won(s.price)}</em></span>
                 </Link>
               ))}
