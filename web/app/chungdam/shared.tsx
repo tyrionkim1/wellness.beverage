@@ -133,33 +133,21 @@ export const samplersWith = (ds: Dataset, id: string) => SAMPLERS.filter((s) => 
 
 export const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;
 
-// ---- 픽토그램 (실사 사진 대신, 라인 아이콘) ----
-export type PictoKind = "sugar" | "protein" | "plant" | "decaf" | "mix";
-export function Picto({ kind }: { kind: string }) {
-  const c = { fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  return (
-    <svg viewBox="0 0 64 64" aria-hidden="true" className="cd-picto">
-      {kind === "sugar" ? (<>
-        {/* 각설탕 + 아래 화살표 */}
-        <path {...c} d="M14 26l12-6 12 6v14l-12 6-12-6z" /><path {...c} d="M14 26l12 6 12-6M26 32v14" />
-        <path {...c} d="M48 18v24M42 36l6 6 6-6" />
-      </>) : kind === "protein" ? (<>
-        {/* 셰이커 */}
-        <path {...c} d="M22 14h20l-2 6H24z" /><path {...c} d="M24 20l2 32h12l2-32" /><path {...c} d="M26 30h12" />
-        <path {...c} d="M29 38h6M32 35v6" />
-      </>) : kind === "plant" ? (<>
-        {/* 잎 */}
-        <path {...c} d="M18 46C18 28 30 16 48 16c0 18-12 30-30 30z" /><path {...c} d="M18 46l20-20" /><path {...c} d="M14 50l4-4" />
-      </>) : kind === "decaf" ? (<>
-        {/* 커피잔 + 사선 */}
-        <path {...c} d="M16 26h26v10a12 12 0 0 1-12 12h-2a12 12 0 0 1-12-12z" /><path {...c} d="M42 30h4a5 5 0 0 1 0 10h-5" />
-        <path {...c} d="M24 14c-2 3 2 5 0 8M32 14c-2 3 2 5 0 8" /><path {...c} d="M12 52L52 12" />
-      </>) : (<>
-        {/* 병 세 개 */}
-        <path {...c} d="M14 24h10v26H14zM16 18h6v6h-6z" /><path {...c} d="M27 20h10v30H27zM29 14h6v6h-6z" /><path {...c} d="M40 26h10v24H40zM42 20h6v6h-6z" />
-      </>)}
-    </svg>
-  );
+// ---- 음료 실사 이미지 (Unsplash, 무료 라이선스 · 핫링크). 특정 제품 사진이 아닌 분위기 컷 ----
+const PHOTOS: Record<string, [string, string]> = {
+  sugar: ["photo-1610622929746-ab2606cfd2b7", "위에서 본 그린 주스 두 잔"],
+  protein: ["photo-1639151082238-85f66f112b6f", "우유병과 우유 한 잔"],
+  plant: ["photo-1625055930088-4424bb0806dd", "아몬드와 식물성 음료 한 잔"],
+  decaf: ["photo-1632639520506-351061db58fc", "캐모마일 꽃과 허브티 한 잔"],
+  mix: ["photo-1704369291921-a1abffc09768", "우유병과 그래놀라·블루베리"],
+  hero: ["photo-1622597468666-27cb9cae0e45", "유리잔에 담긴 그린 주스와 시금치·사과"],
+};
+export const photoUrl = (kind: string, w = 800) =>
+  `https://images.unsplash.com/${(PHOTOS[kind] || PHOTOS.mix)[0]}?w=${w}&q=70&auto=format&fit=crop`;
+export function Photo({ kind, w = 800 }: { kind: string; w?: number }) {
+  const [, alt] = PHOTOS[kind] || PHOTOS.mix;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={photoUrl(kind, w)} srcSet={`${photoUrl(kind, w)} 1x, ${photoUrl(kind, w * 2)} 2x`} alt={alt} loading="lazy" decoding="async" />;
 }
 
 // ---- 공용 UI (배치는 득근음료와 동일: 헤더 4메뉴 · 업데이트 줄 · 카드 그리드 · 하단 고지) ----
@@ -182,7 +170,7 @@ export function Shell({ children, active }: { children: React.ReactNode; active?
       {children}
       <footer className="cd-ftr">
         <div className="cd-wrap">
-          <p>청담음료(가칭) · KAIST MBA 8조 MVP · 데이터 출처: 식품의약품안전처 식품영양성분DB(공공데이터포털), 식품안전나라 품목제조보고(원재료). 표시값은 제품 영양성분표 기준이며 질병의 예방·치료 효과를 의미하지 않습니다. 정렬·랭킹은 공개된 성분 기준에 따른 순서이며 제품 평가가 아닙니다.</p>
+          <p>청담음료(가칭) · KAIST MBA 8조 MVP · 이미지: Unsplash(분위기 컷, 실제 제품 아님) · 데이터 출처: 식품의약품안전처 식품영양성분DB(공공데이터포털), 식품안전나라 품목제조보고(원재료). 표시값은 제품 영양성분표 기준이며 질병의 예방·치료 효과를 의미하지 않습니다. 정렬·랭킹은 공개된 성분 기준에 따른 순서이며 제품 평가가 아닙니다.</p>
           <p><Link href="/chungdam/about/">분석 방법 보기</Link> · <Link href="/chungdam/#signup">출시 알림 받기</Link></p>
         </div>
       </footer>
