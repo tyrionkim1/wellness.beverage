@@ -3,7 +3,7 @@
 // 원칙(요구사항 2.3·4.2·4.3): 수치 없음 ≠ 0, 기준 공개, 효능 단정 금지, 근거 있는 태그만.
 import Link from "next/link";
 import Pack from "@/components/Pack";
-import { Dataset, Drink, TagDef, effectiveBasis, fmtNum, fmtSize, hasTag, nut } from "@/lib/data";
+import { Dataset, Drink, Summary, TagDef, effectiveBasis, fmtDate, fmtNum, fmtSize, hasTag, insights, nut } from "@/lib/data";
 import { ga } from "./ga";
 
 // ---- 판정 규칙 (화면 '기준 안내'와 동일하게 유지) ----
@@ -52,12 +52,16 @@ export function evidenceTags(d: Drink, ds: Dataset): string[] {
   return out;
 }
 
+// 저당 랭킹은 일상적으로 마시는 음료 유형만 (진액·즙·젤리·앰플·샷·원액 등 제외)
+const EVERYDAY = new Set(["액상차", "액상커피", "두유", "탄산음료", "과·채음료", "액상음료", "발효음료", "유산균음료"]);
+const NOT_EVERYDAY = /진액|즙|젤리|앰플|샷|원액|엑기스|스틱|농축|아르기?닌|글루타치온|알부민/;
+
 // ---- 랭킹 (요구사항 4.3: 비교 단위·산정 기준·동률 처리 공개) ----
 export type RankKey = "lowsugar" | "protein" | "plant";
 export const RANKINGS: { key: RankKey; label: string; title: string; unit: string; rule: string[] }[] = [
   {
     key: "lowsugar", label: "저당", title: "저당 음료", unit: "100ml 기준",
-    rule: ["100ml당 당류 2.5g 미만(저당 기준 충족)이면서 열량이 있는 음료 (탄산수·생수류 제외)", "당류 낮은 순 → 동률이면 열량 낮은 순 → 제품명 순", "당류·열량 값이 없는 음료, 50ml 미만 샷·캡슐형 제외 · 같은 제품의 용량 변형은 하나만"],
+    rule: ["100ml당 당류 2.5g 미만(저당 기준 충족)인 일상 음료 — 차·커피·두유·탄산·주스·발효·기타 액상음료 유형 (탄산수·진액·즙·젤리·앰플·샷·원액 제외)", "당류 낮은 순 → 동률이면 열량 낮은 순 → 제품명 순", "당류·열량 값이 없는 음료, 100ml 미만 소용량 제외 · 같은 제품의 용량 변형은 하나만"],
   },
   {
     key: "protein", label: "고단백", title: "단백질 많은 음료", unit: "1팩 기준(500ml 이하) / 그 외 100ml",
@@ -78,7 +82,7 @@ export function rank(ds: Dataset, key: RankKey): { list: Drink[]; excluded: numb
     const s = d.per100.sugar;
     if (key === "lowsugar") {
       if (s === null || d.per100.kcal === null) { excluded++; continue; }
-      if (s < LOW_SUGAR && d.per100.kcal >= 5 && d.type !== "탄산수") pool.push(d);
+      if (s < LOW_SUGAR && d.per100.kcal >= 5 && EVERYDAY.has(d.type) && !NOT_EVERYDAY.test(d.name) && !(d.size !== null && d.size < 100)) pool.push(d);
     } else if (key === "protein") {
       const p = packProtein(d);
       if (p === null || s === null) { excluded++; continue; }
@@ -130,28 +134,51 @@ export const samplersWith = (ds: Dataset, id: string) => SAMPLERS.filter((s) => 
 export const img = (id: string, w = 640) => `https://images.unsplash.com/${id}?w=${w}&q=70&auto=format&fit=crop`;
 export const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;
 
-// ---- 공용 UI ----
-export function Shell({ children, active }: { children: React.ReactNode; active?: "find" | "rank" | "sampler" }) {
+// ---- 공용 UI (배치는 득근음료와 동일: 헤더 4메뉴 · 업데이트 줄 · 카드 그리드 · 하단 고지) ----
+export type NavKey = "find" | "rank" | "sampler" | "about";
+export function Shell({ children, active }: { children: React.ReactNode; active?: NavKey }) {
+  const nav: [NavKey, string, string][] = [
+    ["find", "/chungdam/", "탐색"], ["rank", "/chungdam/ranking/", "랭킹"],
+    ["sampler", "/chungdam/samplers/", "샘플러"], ["about", "/chungdam/about/", "방법"],
+  ];
   return (
     <div className="cd">
       <header className="cd-hdr">
         <div className="cd-wrap cd-hdr-in">
-          <Link href="/chungdam/" className="cd-logo">청담음료</Link>
+          <Link href="/chungdam/" className="cd-logo" aria-label="청담음료 홈">청담음료</Link>
           <nav className="cd-nav" aria-label="주요 메뉴">
-            <Link href="/chungdam/#finder" className={active === "find" ? "on" : ""}>음료 찾기</Link>
-            <Link href="/chungdam/ranking/" className={active === "rank" ? "on" : ""}>랭킹</Link>
-            <Link href="/chungdam/samplers/" className={active === "sampler" ? "on" : ""}>샘플러</Link>
-            <Link href="/chungdam/#signup" className="cd-nav-cta">출시 알림</Link>
+            {nav.map(([k, href, label]) => <Link key={k} href={href} className={active === k ? "on" : ""}>{label}</Link>)}
           </nav>
         </div>
       </header>
       {children}
       <footer className="cd-ftr">
         <div className="cd-wrap">
-          <p><b>청담음료(가칭)</b> · KAIST MBA 8조 MVP</p>
-          <p>데이터 출처: 식품의약품안전처 식품영양성분DB(공공데이터포털), 식품안전나라 품목제조보고(원재료). 표시값은 제품 영양성분표 기준이며 질병의 예방·치료 효과를 의미하지 않습니다. 정렬·랭킹은 공개된 성분 기준에 따른 순서이며 제품 평가가 아닙니다.</p>
+          <p>청담음료(가칭) · KAIST MBA 8조 MVP · 데이터 출처: 식품의약품안전처 식품영양성분DB(공공데이터포털), 식품안전나라 품목제조보고(원재료). 표시값은 제품 영양성분표 기준이며 질병의 예방·치료 효과를 의미하지 않습니다. 정렬·랭킹은 공개된 성분 기준에 따른 순서이며 제품 평가가 아닙니다.</p>
+          <p><Link href="/chungdam/about/">분석 방법 보기</Link> · <Link href="/chungdam/#signup">출시 알림 받기</Link></p>
         </div>
       </footer>
+    </div>
+  );
+}
+
+export function UpdateStrip({ s }: { s: Summary | null }) {
+  return (
+    <div className="cd-upd">
+      <div className="cd-wrap cd-upd-in">
+        <span className="cd-dot" aria-hidden="true" />
+        <b>UPDATED {s ? fmtDate(s.collected) : "…"}</b>
+        <span>{s ? <>음료 <b>{s.count.toLocaleString("ko-KR")}</b>개 · 신규 <b>+{s.newCount}</b> · 식약처 기준일 {fmtDate(s.baseDate)}</> : "데이터 불러오는 중"}</span>
+      </div>
+    </div>
+  );
+}
+
+export function Stat({ label, value, unit }: { label: string; value: number | null; unit: string }) {
+  return (
+    <div className="cd-stat">
+      <span className="cd-stat-l">{label}</span>
+      {value === null ? <span className="cd-stat-na">정보 없음</span> : <span className="cd-stat-v"><b>{fmtNum(value)}</b><i>{unit}</i></span>}
     </div>
   );
 }
@@ -159,24 +186,26 @@ export function Shell({ children, active }: { children: React.ReactNode; active?
 export function DrinkCard({ d, ds, rankNo, from }: { d: Drink; ds: Dataset; rankNo?: number; from?: string }) {
   const b = effectiveBasis(d, "pack");
   const tags = evidenceTags(d, ds).slice(0, 3);
-  const v = (k: "sugar" | "protein" | "kcal") => nut(d, k, b);
-  const val = (x: number | null, u: string) => (x === null ? "정보 없음" : `${fmtNum(x)}${u}`);
+  const ins = insights(d, b).slice(0, 2);
   return (
-    <li className="cd-item">
-      <Link href={`/chungdam/p/?id=${encodeURIComponent(d.id)}`} onClick={() => ga("product_view", { product_id: d.id, from: from || "list" })}>
-        {rankNo ? <span className="cd-rankno">{rankNo}</span> : null}
-        <Pack d={d} className="cd-pack" />
-        <span className="cd-info">
-          <small>{d.maker || "제조사 정보 없음"}</small>
-          <b>{d.name}</b>
-          <em>{fmtSize(d)} · {b === "pack" ? "1팩 기준" : `100${d.basisUnit || "ml"} 기준`}</em>
-          <span className="cd-nums">
-            <span>당류 <i>{val(v("sugar"), "g")}</i></span>
-            <span>단백질 <i>{val(v("protein"), "g")}</i></span>
-            <span>열량 <i>{val(v("kcal"), "kcal")}</i></span>
-          </span>
-          {tags.length ? <span className="cd-tags">{tags.map((t) => <span key={t}>{t}</span>)}</span> : null}
-        </span>
+    <li className="cd-card">
+      <Link href={`/chungdam/p/?id=${encodeURIComponent(d.id)}`} className="cd-card-link" onClick={() => ga("product_view", { product_id: d.id, from: from || "list" })}>
+        <div className="cd-card-head">
+          {rankNo ? <span className="cd-rankno">{rankNo}</span> : null}
+          <Pack d={d} className="cd-pack" />
+          <div className="cd-card-title">
+            <small>{d.maker || "제조사 정보 없음"}{d.isNew ? <em className="cd-new">NEW</em> : null}</small>
+            <b>{d.name}</b>
+            <span>{fmtSize(d)} · {b === "pack" ? "1팩 기준" : `100${d.basisUnit || "ml"} 기준`} · {d.type}</span>
+          </div>
+        </div>
+        <div className="cd-stats3">
+          <Stat label="당류" value={nut(d, "sugar", b)} unit="g" />
+          <Stat label="단백질" value={nut(d, "protein", b)} unit="g" />
+          <Stat label="열량" value={nut(d, "kcal", b)} unit="kcal" />
+        </div>
+        {ins.length ? <p className="cd-insight">{ins.join(" · ")}</p> : null}
+        {tags.length ? <span className="cd-tags">{tags.map((t) => <span key={t}>{t}</span>)}</span> : null}
       </Link>
     </li>
   );
