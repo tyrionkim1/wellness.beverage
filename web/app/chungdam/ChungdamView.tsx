@@ -1,20 +1,24 @@
 "use client";
-// 청담음료 MVP (웰니스 버전) — 목표·조건 선택 → 식약처 DB 음료를 공개 기준으로 정렬해 보여준다.
-// 규칙: 순위·점수·효능 표현 금지. 영양성분 수치 + 원재료 사실 태그로만 거른다.
-// 장 건강·수면·면역·피부 목표는 표시광고 규제 검토 전까지 제외 (팀 결정 10/8).
+// 청담음료 MVP 메인 — 요구사항 정의서 v1.1/1.2 기준.
+// 내 기준으로 찾기 → 쉽게 이해하기 → 비교·선택 → 출시 알림. 효능 단정·임의 점수 없음.
+// 목표 탐색에서 장 건강·면역·수면·피부는 표시광고 검토 전까지 제외(팀 결정). 관심 분야(가입)에는 수요 확인용으로 포함.
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Pack from "@/components/Pack";
+import { Dataset, Drink, effectiveBasis, fmtNum, hasTag, loadData, nut } from "@/lib/data";
 import { ga, useGA } from "./ga";
-import { Dataset, Drink, TagDef, effectiveBasis, fmtNum, fmtSize, hasTag, loadData, nut } from "@/lib/data";
+import {
+  ARTIFICIAL, DrinkCard, LOW_SUGAR, PROTEIN_PACK, RANKINGS, RankKey, SAMPLERS, Shell,
+  hasSweet, img, isConcentrate, notProteinComparable, rank, won,
+} from "./shared";
 
-// ---- 설정 ----
 const ENDPOINT =
   "https://script.google.com/macros/s/AKfycbzhiqqWMEPkYDrEnMOFhdNEB4U1Q_E44JAEa6OkVR7QATYhM9s5tNb4Kqh4D4INXALl/exec";
-const PAGE = 24;
+const CONSENT_VERSION = "2026-10-14.v1";
+const PAGE = 20;
 
 type GoalKey = "sugar" | "fat" | "protein" | "plant" | "decaf";
-type CondKey = "protein10" | "lactofree" | "fiber" | "probiotic" | "plant" | "noCaffeine" | "noArtificial";
+type CondKey = "protein10" | "lactofree" | "fiber" | "probiotic" | "plant" | "noCaffeine";
+type ExKey = "artificial" | "sugarSrc" | "altSweet" | "dairy";
 type SortKey = "sugar" | "protein" | "kcal";
 
 const GOALS: { key: GoalKey; label: string }[] = [
@@ -24,86 +28,78 @@ const GOALS: { key: GoalKey; label: string }[] = [
   { key: "plant", label: "식물성 식단" },
   { key: "decaf", label: "카페인 줄이기" },
 ];
-
 const CONDS: { key: CondKey; label: string }[] = [
-  { key: "protein10", label: "단백질 10g 이상" },
+  { key: "protein10", label: `단백질 ${PROTEIN_PACK}g 이상` },
   { key: "lactofree", label: "락토프리" },
-  { key: "fiber", label: "식이섬유 원료" },
-  { key: "probiotic", label: "유산균 원료" },
   { key: "plant", label: "식물성 단백 원료" },
   { key: "noCaffeine", label: "카페인 원료 없음" },
-  { key: "noArtificial", label: "인공감미료 없음" },
+  { key: "fiber", label: "식이섬유 원료" },
+  { key: "probiotic", label: "유산균 원료" },
 ];
+const EXCLUDES: { key: ExKey; label: string }[] = [
+  { key: "artificial", label: "인공감미료" },
+  { key: "sugarSrc", label: "설탕·당류 원료" },
+  { key: "altSweet", label: "대체감미료 전체" },
+  { key: "dairy", label: "유제품 원료" },
+];
+const ALT_SWEET = ["allulose", "erythritol", "sucralose", "acek", "stevia", "aspartame", "sugaralcohol", "monkfruit"];
 
-// 목표 선택 시 함께 켜지는 조건·정렬 (사용자가 다시 끌 수 있음)
-const GOAL_PRESET: Record<GoalKey, { conds: CondKey[]; sort: SortKey; sugarMax?: number }> = {
-  sugar: { conds: [], sort: "sugar", sugarMax: 2.5 },
-  fat: { conds: [], sort: "kcal", sugarMax: 5 },
-  protein: { conds: ["protein10"], sort: "protein" },
-  plant: { conds: ["plant"], sort: "protein" },
+const GOAL_PRESET: Record<GoalKey, { conds: CondKey[]; sort: SortKey; sugarMax?: number; kcalMax?: number; ex?: ExKey[] }> = {
+  sugar: { conds: [], sort: "sugar", sugarMax: LOW_SUGAR },
+  fat: { conds: [], sort: "kcal", sugarMax: 5, kcalMax: 30 },
+  protein: { conds: ["protein10"], sort: "protein", sugarMax: 5 },
+  plant: { conds: ["plant"], sort: "protein", ex: ["dairy"] },
   decaf: { conds: ["noCaffeine"], sort: "sugar" },
 };
-
 const CARDS: { goal: GoalKey; title: string; desc: string; img: string }[] = [
-  { goal: "sugar", title: "당류를 줄이고 싶을 때", desc: "100ml당 당류 2.5g 이하부터", img: "photo-1667857410842-ce0a0069acb1" },
-  { goal: "protein", title: "단백질을 보충하고 싶을 때", desc: "1팩 단백질 10g 이상", img: "photo-1596633605700-1efc9b49e277" },
-  { goal: "plant", title: "식물성 음료를 찾을 때", desc: "대두·귀리·아몬드 등 식물성 단백 원료", img: "photo-1615485737457-f07082c77813" },
+  { goal: "sugar", title: "당류를 줄이고 싶을 때", desc: "100ml당 당류 2.5g 미만부터", img: "photo-1667857410842-ce0a0069acb1" },
+  { goal: "protein", title: "단백질을 보충하고 싶을 때", desc: "1팩 단백질 10g 이상 · 당류 5g 이하", img: "photo-1596633605700-1efc9b49e277" },
+  { goal: "plant", title: "식물성 음료를 찾을 때", desc: "식물성 단백 원료 · 유제품 원료 없음", img: "photo-1615485737457-f07082c77813" },
   { goal: "decaf", title: "카페인을 줄이고 싶을 때", desc: "원재료에 카페인 원료가 없는 음료", img: "photo-1498604636225-6b87a314baa0" },
 ];
-const img = (id: string) => `https://images.unsplash.com/${id}?w=640&q=70&auto=format&fit=crop`;
-
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "sugar", label: "당류 낮은 순" },
   { key: "protein", label: "단백질 높은 순" },
   { key: "kcal", label: "열량 낮은 순" },
 ];
+const SUGAR_MAX = 10; // 끝값 = 제한 없음
+const KCAL_MAX = 100; // 100ml당, 끝값 = 제한 없음
+const NA_MAX = 500; // 1팩 mg, 끝값 = 제한 없음
 
-const SUGAR_MAX = 10; // 슬라이더 끝값 = 제한 없음
-const ARTIFICIAL = ["sucralose", "acek", "aspartame"];
+type F = { conds: Set<CondKey>; ex: Set<ExKey>; sugarMax: number; kcalMax: number; naMax: number };
+const EMPTY_F = (): F => ({ conds: new Set(), ex: new Set(), sugarMax: SUGAR_MAX, kcalMax: KCAL_MAX, naMax: NA_MAX });
 
-// ---- 필터 ----
-function hasSweet(d: Drink, defs: TagDef[], id: string) {
-  const i = defs.findIndex(([t]) => t === id);
-  return i >= 0 && (d.sweet & (1 << i)) !== 0;
-}
-
-type Result = { list: Drink[]; missing: number; conc: number };
-// 100ml(g)당 단백질 15g 초과 = 농축·분말·아미노산 제품 추정 → 바로 마시는 음료 비교에서 제외 (값 오류 아님, 범주 차이)
-const CONC_PROTEIN = 15;
-
-function runFilter(ds: Dataset, conds: Set<CondKey>, sugarMax: number, sort: SortKey): Result {
+function runFilter(ds: Dataset, f: F, sort: SortKey) {
   let missing = 0, conc = 0;
-  const needIngr = [...conds].some((c) => c !== "protein10");
+  const needIngr = [...f.conds].some((c) => c !== "protein10") || f.ex.size > 0;
   const out: Drink[] = [];
   for (const d of ds.drinks) {
-    if ((d.per100.protein ?? 0) > CONC_PROTEIN) { conc++; continue; }
+    if (isConcentrate(d)) { conc++; continue; }
     const b = effectiveBasis(d, "pack");
-    // 수치가 없으면 '정보 없음'으로 따로 센다 (0으로 채우지 않음)
-    if (sugarMax < SUGAR_MAX) {
-      const s = d.per100.sugar;
-      if (s === null) { missing++; continue; }
-      if (s > sugarMax) continue;
-    }
-    if (conds.has("protein10")) {
+    // AND 조건. 판정에 필요한 값이 없으면 '정보 없음'으로 따로 센다(0으로 간주하지 않음)
+    if (f.sugarMax < SUGAR_MAX) { const s = d.per100.sugar; if (s === null) { missing++; continue; } if (s > f.sugarMax) continue; }
+    if (f.kcalMax < KCAL_MAX) { const k = d.per100.kcal; if (k === null) { missing++; continue; } if (k > f.kcalMax) continue; }
+    if (f.naMax < NA_MAX) { const n = nut(d, "sodium", b); if (n === null) { missing++; continue; } if (n > f.naMax) continue; }
+    if (f.conds.has("protein10")) {
       const p = nut(d, "protein", b);
       if (p === null) { missing++; continue; }
-      if (p < 10) continue;
+      if (p < PROTEIN_PACK) continue;
+      if (notProteinComparable(d, ds)) { conc++; continue; } // 콜라겐·아미노산·단백 원료 없음 → 단백질 비교 제외
     }
     if (needIngr && !d.hasIngr) { missing++; continue; }
-    if (conds.has("lactofree") && !hasTag(d, ds.tagDefs, "lactofree")) continue;
-    if (conds.has("fiber") && !hasTag(d, ds.tagDefs, "fiber_src")) continue;
-    if (conds.has("probiotic") && !hasTag(d, ds.tagDefs, "probiotic")) continue;
-    if (conds.has("plant") && !hasTag(d, ds.tagDefs, "plantprotein")) continue;
-    if (conds.has("noCaffeine") && (hasTag(d, ds.tagDefs, "caffeine_src") || (d.caffeine ?? 0) > 0)) continue;
-    if (conds.has("noArtificial") && ARTIFICIAL.some((a) => hasSweet(d, ds.sweetDefs, a))) continue;
-    // 정렬 기준값이 없으면 목록 끝으로 (제외하지 않음)
+    if (f.conds.has("lactofree") && !hasTag(d, ds.tagDefs, "lactofree")) continue;
+    if (f.conds.has("fiber") && !hasTag(d, ds.tagDefs, "fiber_src")) continue;
+    if (f.conds.has("probiotic") && !hasTag(d, ds.tagDefs, "probiotic")) continue;
+    if (f.conds.has("plant") && !hasTag(d, ds.tagDefs, "plantprotein")) continue;
+    if (f.conds.has("noCaffeine") && (hasTag(d, ds.tagDefs, "caffeine_src") || (d.caffeine ?? 0) > 0)) continue;
+    if (f.ex.has("artificial") && ARTIFICIAL.some((a) => hasSweet(d, ds.sweetDefs, a))) continue;
+    if (f.ex.has("altSweet") && ALT_SWEET.some((a) => hasSweet(d, ds.sweetDefs, a))) continue;
+    if (f.ex.has("sugarSrc") && hasSweet(d, ds.sweetDefs, "sugar")) continue;
+    if (f.ex.has("dairy") && hasTag(d, ds.tagDefs, "dairy")) continue;
     out.push(d);
   }
-  const key = (d: Drink): number | null => {
-    if (sort === "protein") return nut(d, "protein", effectiveBasis(d, "pack"));
-    if (sort === "kcal") return d.per100.kcal;
-    return d.per100.sugar;
-  };
+  const key = (d: Drink): number | null =>
+    sort === "protein" ? nut(d, "protein", effectiveBasis(d, "pack")) : sort === "kcal" ? d.per100.kcal : d.per100.sugar;
   const dir = sort === "protein" ? -1 : 1;
   out.sort((a, b) => {
     const x = key(a), y = key(b);
@@ -115,119 +111,121 @@ function runFilter(ds: Dataset, conds: Set<CondKey>, sugarMax: number, sort: Sor
   return { list: out, missing, conc };
 }
 
-// ---- 화면 ----
+const scrollTo = (el: HTMLElement | null) => requestAnimationFrame(() => el?.scrollIntoView({ behavior: "smooth", block: "start" }));
+
 export default function ChungdamView() {
-  useGA("landing_view");
+  useGA("landing_view", { device: typeof window !== "undefined" && window.innerWidth < 768 ? "mobile" : "desktop" });
   const [ds, setDs] = useState<Dataset | null>(null);
   const [err, setErr] = useState(false);
   const [goals, setGoals] = useState<Set<GoalKey>>(new Set());
-  const [conds, setConds] = useState<Set<CondKey>>(new Set());
-  const [sugarMax, setSugarMax] = useState(5);
+  const [f, setF] = useState<F>(EMPTY_F);
+  const [more, setMore] = useState(false);
   const [sort, setSort] = useState<SortKey>("sugar");
-  const [applied, setApplied] = useState<{ conds: Set<CondKey>; sugarMax: number } | null>(null);
+  const [live, setLive] = useState(false); // 첫 '찾기' 이후엔 필터 변경 즉시 결과 갱신
   const [shown, setShown] = useState(PAGE);
   const resRef = useRef<HTMLElement>(null);
   const finderRef = useRef<HTMLElement>(null);
   const signRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    loadData().then(setDs).catch(() => setErr(true));
-  }, []);
+  useEffect(() => { loadData().then(setDs).catch(() => setErr(true)); }, []);
+
+  const result = useMemo(() => (ds && live ? runFilter(ds, f, sort) : null), [ds, f, sort, live]);
+  const ingrCount = useMemo(() => (ds ? ds.drinks.filter((d) => d.hasIngr).length : 0), [ds]);
+
+  const upd = (p: Partial<F>) => { setF((o) => ({ ...o, ...p })); setShown(PAGE); };
+  const toggleSet = <T,>(s: Set<T>, v: T) => { const n = new Set(s); if (n.has(v)) n.delete(v); else n.add(v); return n; };
 
   const toggleGoal = (g: GoalKey) => {
-    const next = new Set(goals);
-    if (next.has(g)) next.delete(g);
-    else {
-      next.add(g);
-      const p = GOAL_PRESET[g];
-      setConds((c) => new Set([...c, ...p.conds]));
-      setSort(p.sort);
-      if (p.sugarMax !== undefined) setSugarMax((m) => Math.min(m, p.sugarMax!));
-      ga("goal_select", { goal: g });
-    }
-    setGoals(next);
+    if (goals.has(g)) { setGoals(toggleSet(goals, g)); return; }
+    const p = GOAL_PRESET[g];
+    setGoals(toggleSet(goals, g));
+    setF((o) => ({
+      ...o,
+      conds: new Set([...o.conds, ...p.conds]),
+      ex: new Set([...o.ex, ...(p.ex || [])]),
+      sugarMax: p.sugarMax !== undefined ? Math.min(o.sugarMax, p.sugarMax) : o.sugarMax,
+      kcalMax: p.kcalMax !== undefined ? Math.min(o.kcalMax, p.kcalMax) : o.kcalMax,
+    }));
+    setSort(p.sort);
+    ga("goal_select", { goal: g });
   };
-  const toggleCond = (c: CondKey) => {
-    const next = new Set(conds);
-    if (next.has(c)) next.delete(c); else next.add(c);
-    setConds(next);
+  const apply = () => {
+    setLive(true); setShown(PAGE);
+    const r = ds ? runFilter(ds, f, sort) : null;
+    ga("filter_apply", { goals: [...goals].join(","), conds: [...f.conds].join(","), exclude: [...f.ex].join(","), sugar_max: f.sugarMax, kcal_max: f.kcalMax, sodium_max: f.naMax, sort, result_count: r?.list.length ?? 0 });
+    scrollTo(resRef.current);
   };
-
-  const apply = (c = conds, s = sugarMax) => {
-    setApplied({ conds: new Set(c), sugarMax: s });
-    setShown(PAGE);
-    ga("filter_apply", { goals: [...goals].join(","), conds: [...c].join(","), sugar_max: s, sort });
-    requestAnimationFrame(() => resRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  };
-
   const pickCard = (g: GoalKey) => {
     const p = GOAL_PRESET[g];
-    const c = new Set<CondKey>(p.conds);
-    const s = p.sugarMax ?? SUGAR_MAX;
     setGoals(new Set([g]));
-    setConds(c);
-    setSugarMax(s);
-    setSort(p.sort);
-    ga("goal_card_click", { goal: g });
-    setApplied({ conds: c, sugarMax: s });
-    setShown(PAGE);
-    requestAnimationFrame(() => resRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    setF({ conds: new Set(p.conds), ex: new Set(p.ex || []), sugarMax: p.sugarMax ?? SUGAR_MAX, kcalMax: p.kcalMax ?? KCAL_MAX, naMax: NA_MAX });
+    setSort(p.sort); setLive(true); setShown(PAGE);
+    ga("goal_select", { goal: g, from: "card" });
+    scrollTo(resRef.current);
   };
+  const reset = () => { setGoals(new Set()); setF(EMPTY_F()); setShown(PAGE); };
 
-  const result = useMemo(
-    () => (ds && applied ? runFilter(ds, applied.conds, applied.sugarMax, sort) : null),
-    [ds, applied, sort],
-  );
-
-  const sugarText = sugarMax >= SUGAR_MAX ? "제한 없음" : `${fmtNum(sugarMax)}g 이하`;
+  // 선택 필터 칩 (결과 상단, 개별 해제 가능)
+  const chips: { label: string; off: () => void }[] = [
+    ...(f.sugarMax < SUGAR_MAX ? [{ label: `당류 ${fmtNum(f.sugarMax)}g 이하/100ml`, off: () => upd({ sugarMax: SUGAR_MAX }) }] : []),
+    ...(f.kcalMax < KCAL_MAX ? [{ label: `열량 ${f.kcalMax}kcal 이하/100ml`, off: () => upd({ kcalMax: KCAL_MAX }) }] : []),
+    ...(f.naMax < NA_MAX ? [{ label: `나트륨 ${f.naMax}mg 이하/1팩`, off: () => upd({ naMax: NA_MAX }) }] : []),
+    ...[...f.conds].map((k) => ({ label: CONDS.find((c) => c.key === k)!.label, off: () => upd({ conds: toggleSet(f.conds, k) }) })),
+    ...[...f.ex].map((k) => ({ label: `${EXCLUDES.find((c) => c.key === k)!.label} 제외`, off: () => upd({ ex: toggleSet(f.ex, k) }) })),
+  ];
 
   return (
-    <div className="cd">
-      <header className="cd-hdr">
-        <div className="cd-wrap cd-hdr-in">
-          <Link href="/chungdam/" className="cd-logo">청담음료</Link>
-          <nav className="cd-nav">
-            <button type="button" onClick={() => finderRef.current?.scrollIntoView({ behavior: "smooth" })}>음료 찾기</button>
-            <button type="button" onClick={() => signRef.current?.scrollIntoView({ behavior: "smooth" })}>출시 알림</button>
-          </nav>
-        </div>
-      </header>
-
+    <Shell active="find">
+      {/* HERO */}
       <section className="cd-hero">
-        <div className="cd-wrap">
-          <p className="cd-eyebrow">건강음료 큐레이션</p>
-          <h1>매일 마시는 한 잔,<br />기준 있게.</h1>
-          <p className="cd-lead">
-            당류부터 단백질, 원재료까지. 복잡한 음료 성분을 쉽게 비교하고 나에게 맞는 한 잔을 찾아보세요.
-          </p>
-          <div className="cd-hero-cta">
-            <button type="button" className="cd-btn" onClick={() => finderRef.current?.scrollIntoView({ behavior: "smooth" })}>
-              내게 맞는 음료 찾기
-            </button>
-            <button type="button" className="cd-btn ghost" onClick={() => { ga("signup_start", { from: "hero" }); signRef.current?.scrollIntoView({ behavior: "smooth" }); }}>
-              출시 알림 받기
-            </button>
+        <div className="cd-wrap cd-hero-grid">
+          <div>
+            <p className="cd-eyebrow">건강음료 큐레이션</p>
+            <h1>매일 마시는 한 잔,<br />기준 있게.</h1>
+            <p className="cd-lead">당류부터 단백질, 원재료까지. 복잡한 음료 성분을 쉽게 비교하고 나에게 맞는 한 잔을 찾아보세요.</p>
+            <div className="cd-hero-cta">
+              <button type="button" className="cd-btn" onClick={() => scrollTo(finderRef.current)}>내게 맞는 음료 찾기</button>
+              <button type="button" className="cd-btn ghost" onClick={() => { ga("signup_start", { from: "hero" }); scrollTo(signRef.current); }}>출시 알림 받기</button>
+            </div>
           </div>
-          <p className="cd-src">
-            식약처 식품영양성분DB 음료 {ds ? <b>{ds.summary.count.toLocaleString("ko-KR")}</b> : "…"}개 기준
-          </p>
+          <div className="cd-collage" aria-hidden="true">
+            {CARDS.map((c) => <span key={c.goal}><img src={img(c.img, 480)} alt="" /></span>)}
+          </div>
+        </div>
+        <div className="cd-wrap">
+          <div className="cd-stats">
+            <div><b>{ds ? ds.summary.count.toLocaleString("ko-KR") : "…"}</b><span>식약처 DB 음료</span></div>
+            <div><b>{ds ? ingrCount.toLocaleString("ko-KR") : "…"}</b><span>원재료 확인 음료</span></div>
+            <div><b>매주</b><span>공공데이터 갱신</span></div>
+          </div>
         </div>
       </section>
 
-      {/* 4-2 나에게 맞는 음료 찾기 */}
+      {/* HOW */}
+      <section className="cd-sec">
+        <div className="cd-wrap">
+          <h2 className="cd-h2">이렇게 고를 수 있어요</h2>
+          <ol className="cd-steps">
+            <li><b>01</b><strong>내 기준으로 찾기</strong><span>목표와 조건을 고르면 성분 수치로 걸러드려요.</span></li>
+            <li><b>02</b><strong>쉽게 이해하기</strong><span>영양성분·원재료를 용어 설명과 함께 보여드려요.</span></li>
+            <li><b>03</b><strong>비교하고 고르기</strong><span>공개된 기준으로 정렬한 랭킹과 상세를 비교해요.</span></li>
+            <li><b>04</b><strong>먼저 맛보기</strong><span>카테고리별 샘플러로 소량부터 시도해요.</span></li>
+          </ol>
+        </div>
+      </section>
+
+      {/* 4-2 FINDER */}
       <section className="cd-sec" ref={finderRef} id="finder">
         <div className="cd-wrap">
           <div className="cd-finder">
             <h2>나에게 맞는 음료 찾기</h2>
-            <p className="cd-sub">목표와 원하는 조건을 고르면 공개된 성분 수치로 걸러드려요.</p>
+            <p className="cd-sub">선택한 조건을 모두 만족하는 음료만 보여드려요.</p>
 
             <div className="cd-group">
               <h3>나의 목표 <span>복수 선택</span></h3>
               <div className="cd-chips">
                 {GOALS.map((g) => (
-                  <button key={g.key} type="button" aria-pressed={goals.has(g.key)} className={`cd-chip${goals.has(g.key) ? " on" : ""}`} onClick={() => toggleGoal(g.key)}>
-                    {g.label}
-                  </button>
+                  <button key={g.key} type="button" aria-pressed={goals.has(g.key)} className={`cd-chip${goals.has(g.key) ? " on" : ""}`} onClick={() => toggleGoal(g.key)}>{g.label}</button>
                 ))}
               </div>
             </div>
@@ -236,177 +234,234 @@ export default function ChungdamView() {
               <h3>원하는 조건</h3>
               <div className="cd-chips">
                 {CONDS.map((c) => (
-                  <button key={c.key} type="button" aria-pressed={conds.has(c.key)} className={`cd-chip${conds.has(c.key) ? " on" : ""}`} onClick={() => toggleCond(c.key)}>
-                    {c.label}
-                  </button>
+                  <button key={c.key} type="button" aria-pressed={f.conds.has(c.key)} className={`cd-chip${f.conds.has(c.key) ? " on" : ""}`} onClick={() => upd({ conds: toggleSet(f.conds, c.key) })}>{c.label}</button>
                 ))}
               </div>
             </div>
 
-            <div className="cd-group">
-              <h3>당류 상한 <span>100ml 기준</span></h3>
-              <div className="cd-slider">
-                <input
-                  type="range" min={0} max={SUGAR_MAX} step={0.5} value={sugarMax}
-                  onChange={(e) => setSugarMax(Number(e.target.value))}
-                  aria-label="100ml당 당류 상한"
-                  style={{ ["--p" as string]: `${(sugarMax / SUGAR_MAX) * 100}%` }}
-                />
-                <div className="cd-slider-l"><span>0g</span><b>{sugarText}</b><span>제한 없음</span></div>
-              </div>
-            </div>
+            <Range label="당류 상한" unit="100ml 기준" value={f.sugarMax} max={SUGAR_MAX} step={0.5}
+              fmt={(v) => (v >= SUGAR_MAX ? "제한 없음" : `${fmtNum(v)}g 이하`)} onChange={(v) => upd({ sugarMax: v })} />
 
-            <button type="button" className="cd-btn block" onClick={() => apply()} disabled={!ds}>
-              {ds ? "선택 조건으로 음료 찾기" : err ? "데이터를 불러오지 못했어요" : "데이터 불러오는 중…"}
+            <button type="button" className="cd-more" aria-expanded={more} onClick={() => setMore(!more)}>
+              {more ? "상세 조건 접기 ▲" : "상세 조건 더 보기 (열량·나트륨·제외 성분) ▼"}
             </button>
+            {more ? (
+              <div className="cd-more-box">
+                <Range label="열량 상한" unit="100ml 기준" value={f.kcalMax} max={KCAL_MAX} step={5}
+                  fmt={(v) => (v >= KCAL_MAX ? "제한 없음" : `${v}kcal 이하`)} onChange={(v) => upd({ kcalMax: v })} />
+                <Range label="나트륨 상한" unit="1팩 기준" value={f.naMax} max={NA_MAX} step={10}
+                  fmt={(v) => (v >= NA_MAX ? "제한 없음" : `${v}mg 이하`)} onChange={(v) => upd({ naMax: v })} />
+                <div className="cd-group">
+                  <h3>제외할 원료 <span>원재료명 표기 기준</span></h3>
+                  <div className="cd-chips">
+                    {EXCLUDES.map((c) => (
+                      <button key={c.key} type="button" aria-pressed={f.ex.has(c.key)} className={`cd-chip ex${f.ex.has(c.key) ? " on" : ""}`} onClick={() => upd({ ex: toggleSet(f.ex, c.key) })}>{c.label}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="cd-finder-actions">
+              <button type="button" className="cd-btn" onClick={apply} disabled={!ds}>
+                {ds ? "선택 조건으로 음료 찾기" : err ? "데이터를 불러오지 못했어요" : "데이터 불러오는 중…"}
+              </button>
+              <button type="button" className="cd-reset" onClick={reset}>초기화</button>
+            </div>
             <p className="cd-note">
-              장 건강·수면 등 기능성 목표는 표시·광고 기준 검토 후 추가 예정입니다. 조건은 영양성분표 수치와 원재료명 표기만 사용합니다.
+              조건은 영양성분표 수치와 원재료명 표기만 사용합니다. 원재료 기반 조건은 원재료가 확인된 음료에서만 판정해요.
+              장 건강·면역·수면·피부 관련 목표는 표시·광고 기준 검토 후 추가 예정입니다.
             </p>
           </div>
         </div>
       </section>
 
-      {/* 4-3 목표별 추천 */}
+      {/* 4-3 GOAL CARDS */}
       <section className="cd-sec">
         <div className="cd-wrap">
-          <h2 className="cd-h2">목표별로 바로 보기</h2>
+          <h2 className="cd-h2">목표별 추천</h2>
           <div className="cd-cards">
             {CARDS.map((c) => (
               <button key={c.goal} type="button" className="cd-gcard" onClick={() => pickCard(c.goal)}>
                 <span className="cd-gimg"><img src={img(c.img)} alt="" loading="lazy" /></span>
-                <span className="cd-gtxt">
-                  <b>{c.title}</b>
-                  <small>{c.desc}</small>
-                </span>
+                <span className="cd-gtxt"><b>{c.title}</b><small>{c.desc}</small></span>
                 <span className="cd-garrow" aria-hidden="true">→</span>
               </button>
             ))}
           </div>
+          <p className="cd-note">추천은 목표와 관련된 성분 수치·원재료 태그에 따른 규칙 기반 결과이며, 효능을 의미하지 않습니다.</p>
         </div>
       </section>
 
-      {/* 결과 */}
+      {/* RESULTS */}
       <section className="cd-sec" ref={resRef} id="results">
         <div className="cd-wrap">
           {!result ? (
-            <div className="cd-empty">조건을 고르고 <b>음료 찾기</b>를 누르면 여기에 결과가 나와요.</div>
+            <div className="cd-empty">조건을 고르고 <b>음료 찾기</b>를 누르거나, 목표 카드를 눌러보세요.</div>
           ) : (
             <>
               <div className="cd-res-head">
-                <h2 className="cd-h2">
-                  조건에 맞는 음료 <b>{result.list.length.toLocaleString("ko-KR")}</b>개
-                </h2>
+                <h2 className="cd-h2">조건에 맞는 음료 <b>{result.list.length.toLocaleString("ko-KR")}</b>개</h2>
                 <div className="cd-sort" role="tablist" aria-label="정렬">
                   {SORTS.map((s) => (
-                    <button key={s.key} type="button" role="tab" aria-selected={sort === s.key} className={sort === s.key ? "on" : ""} onClick={() => setSort(s.key)}>
-                      {s.label}
-                    </button>
+                    <button key={s.key} type="button" role="tab" aria-selected={sort === s.key} className={sort === s.key ? "on" : ""} onClick={() => setSort(s.key)}>{s.label}</button>
                   ))}
                 </div>
               </div>
+              {chips.length ? (
+                <div className="cd-selchips">
+                  {chips.map((c) => <button key={c.label} type="button" onClick={c.off}>{c.label} <span aria-hidden="true">×</span></button>)}
+                  <button type="button" className="cd-reset" onClick={reset}>전체 해제</button>
+                </div>
+              ) : null}
               <p className="cd-res-meta">
-                당류 {applied!.sugarMax >= SUGAR_MAX ? "제한 없음" : `100ml당 ${fmtNum(applied!.sugarMax)}g 이하`}
-                {[...applied!.conds].map((k) => ` · ${CONDS.find((c) => c.key === k)!.label}`).join("")}
-                {result.missing ? <> · 수치·원재료 정보 없음 <b>{result.missing.toLocaleString("ko-KR")}</b>개 제외</> : null}
-                {result.conc ? <> · 농축·분말형 추정 {result.conc.toLocaleString("ko-KR")}개 제외</> : null}
+                {result.missing ? <>판정에 필요한 정보가 없는 <b>{result.missing.toLocaleString("ko-KR")}</b>개 제외 · </> : null}
+                비교 부적합 {result.conc.toLocaleString("ko-KR")}개 제외(농축·분말형·입력 오류 추정값, 단백질 조건에서 콜라겐·아미노산 제품 등)
               </p>
               {result.list.length === 0 ? (
-                <div className="cd-empty">조건을 조금 풀어보세요. 당류 상한을 올리거나 조건 수를 줄이면 더 많이 보여요.</div>
+                <div className="cd-empty">조건에 맞는 음료가 없어요. 당류 상한을 올리거나 조건을 하나씩 해제해 보세요.</div>
               ) : (
-                <ul className="cd-list">
-                  {result.list.slice(0, shown).map((d) => <DrinkCard key={d.id} d={d} ds={ds!} />)}
-                </ul>
+                <ul className="cd-list">{result.list.slice(0, shown).map((d) => <DrinkCard key={d.id} d={d} ds={ds!} />)}</ul>
               )}
               {shown < result.list.length ? (
                 <button type="button" className="cd-btn ghost block" onClick={() => setShown(shown + PAGE)}>
                   더 보기 ({(result.list.length - shown).toLocaleString("ko-KR")}개 남음)
                 </button>
               ) : null}
-              <p className="cd-note">정렬은 선택한 기준의 표시값 순서이며, 제품 평가·순위가 아닙니다.</p>
+              <p className="cd-note">정렬은 선택한 기준의 표시값 순서이며 제품 평가가 아닙니다. 값이 없는 음료는 목록 끝에 표시돼요.</p>
             </>
           )}
         </div>
       </section>
 
+      {ds ? <RankingPreview ds={ds} /> : null}
+
+      {/* SAMPLERS */}
+      <section className="cd-sec">
+        <div className="cd-wrap">
+          <div className="cd-sec-head">
+            <h2 className="cd-h2">사기 전에, 먼저 조금씩</h2>
+            <Link href="/chungdam/samplers/" className="cd-link">샘플러 전체 보기 →</Link>
+          </div>
+          <p className="cd-sub">20개입 박스 대신, 같은 카테고리 음료 여러 종을 소량으로 묶은 샘플러를 준비하고 있어요.</p>
+          <div className="cd-samplers">
+            {SAMPLERS.map((s) => (
+              <Link key={s.slug} href={`/chungdam/samplers/s/?slug=${s.slug}`} className="cd-scard">
+                <span className="cd-simg"><img src={img(s.img, 480)} alt="" loading="lazy" /><i>출시 준비 중</i></span>
+                <span className="cd-stxt">
+                  <small>{s.category} · {s.items.length}종</small>
+                  <b>{s.name}</b>
+                  <em>예상가 {won(s.price)}</em>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* TRUST */}
+      <section className="cd-sec">
+        <div className="cd-wrap">
+          <h2 className="cd-h2">청담음료의 정보 원칙</h2>
+          <ul className="cd-trust">
+            <li><b>공공데이터 기반</b><span>식약처 식품영양성분DB와 품목제조보고 원재료를 사용하고, 출처와 확인일을 함께 보여드려요.</span></li>
+            <li><b>정보 없음 ≠ 0</b><span>값이 없으면 &lsquo;정보 없음&rsquo;으로 표시하고 미함유로 간주하지 않아요.</span></li>
+            <li><b>근거 있는 태그만</b><span>저당·락토프리·식물성 등은 수치나 원재료명 표기가 확인될 때만 붙여요.</span></li>
+            <li><b>기준 공개 랭킹</b><span>점수나 광고 없이, 비교 단위·산정 기준·동률 처리를 공개한 정렬만 제공해요.</span></li>
+          </ul>
+        </div>
+      </section>
+
       <Signup innerRef={signRef} />
 
-      <footer className="cd-ftr">
+      {/* FAQ */}
+      <section className="cd-sec">
         <div className="cd-wrap">
-          <p>청담음료(가칭) · KAIST MBA 8조 MVP</p>
-          <p>데이터 출처: 식품의약품안전처 식품영양성분DB(공공데이터포털). 표시값은 제품 영양성분표 기준이며 질병의 예방·치료 효과를 의미하지 않습니다.</p>
+          <h2 className="cd-h2">자주 묻는 질문</h2>
+          <details className="cd-faq"><summary>청담음료는 음료를 판매하나요?</summary><p>지금은 정보 서비스 출시 전 단계예요. 샘플러는 판매 준비 중이며, 출시 알림을 신청하시면 가장 먼저 알려드려요.</p></details>
+          <details className="cd-faq"><summary>&lsquo;저당 기준 충족&rsquo;은 어떤 뜻인가요?</summary><p>100ml당 당류가 2.5g 미만이라는 뜻이에요. 당류가 낮다는 사실만으로 혈당 반응이 낮다고 단정할 수는 없어요.</p></details>
+          <details className="cd-faq"><summary>내가 찾는 제품이 없어요.</summary><p>식약처 DB에 등록되지 않았거나 수치가 비어 있는 제품은 보이지 않을 수 있어요. 데이터는 매주 갱신됩니다.</p></details>
         </div>
-      </footer>
+      </section>
+    </Shell>
+  );
+}
+
+function Range({ label, unit, value, max, step, fmt, onChange }: { label: string; unit: string; value: number; max: number; step: number; fmt: (v: number) => string; onChange: (v: number) => void }) {
+  return (
+    <div className="cd-group">
+      <h3>{label} <span>{unit}</span></h3>
+      <div className="cd-slider">
+        <input type="range" min={0} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} aria-label={`${label} (${unit})`}
+          style={{ ["--p" as string]: `${(value / max) * 100}%` }} />
+        <div className="cd-slider-l"><span>0</span><b>{fmt(value)}</b><span>제한 없음</span></div>
+      </div>
     </div>
   );
 }
 
-function DrinkCard({ d, ds }: { d: Drink; ds: Dataset }) {
-  const b = effectiveBasis(d, "pack");
-  const tags = [
-    hasTag(d, ds.tagDefs, "lactofree") && "락토프리",
-    hasTag(d, ds.tagDefs, "plantprotein") && "식물성 단백",
-    hasTag(d, ds.tagDefs, "fiber_src") && "식이섬유 원료",
-    hasTag(d, ds.tagDefs, "probiotic") && "유산균 원료",
-  ].filter(Boolean) as string[];
-  const v = (k: "sugar" | "protein" | "kcal") => nut(d, k, b);
+function RankingPreview({ ds }: { ds: Dataset }) {
+  const [k, setK] = useState<RankKey>("lowsugar");
+  const r = useMemo(() => rank(ds, k), [ds, k]);
+  const def = RANKINGS.find((x) => x.key === k)!;
   return (
-    <li className="cd-item">
-      <Link href={`/chungdam/p/?id=${encodeURIComponent(d.id)}`} onClick={() => ga("product_view", { id: d.id, name: d.name })}>
-        <Pack d={d} className="cd-pack" />
-        <span className="cd-info">
-          <small>{d.maker || "제조사 정보 없음"}</small>
-          <b>{d.name}</b>
-          <em>{fmtSize(d)} · {b === "pack" ? "1팩 기준" : `100${d.basisUnit || "ml"} 기준`}</em>
-          <span className="cd-nums">
-            <span>당류 <i>{v("sugar") === null ? "정보 없음" : `${fmtNum(v("sugar"))}g`}</i></span>
-            <span>단백질 <i>{v("protein") === null ? "정보 없음" : `${fmtNum(v("protein"))}g`}</i></span>
-            <span>열량 <i>{v("kcal") === null ? "정보 없음" : `${fmtNum(v("kcal"))}kcal`}</i></span>
-          </span>
-          {tags.length ? <span className="cd-tags">{tags.slice(0, 3).map((t) => <span key={t}>{t}</span>)}</span> : null}
-        </span>
-      </Link>
-    </li>
+    <section className="cd-sec">
+      <div className="cd-wrap">
+        <div className="cd-sec-head">
+          <h2 className="cd-h2">기준으로 보는 랭킹</h2>
+          <Link href={`/chungdam/ranking/?c=${k}`} className="cd-link">전체 랭킹 →</Link>
+        </div>
+        <div className="cd-sort wide" role="tablist" aria-label="랭킹 카테고리">
+          {RANKINGS.map((x) => (
+            <button key={x.key} type="button" role="tab" aria-selected={k === x.key} className={k === x.key ? "on" : ""}
+              onClick={() => { setK(x.key); ga("ranking_view", { category: x.key, from: "home" }); }}>{x.label}</button>
+          ))}
+        </div>
+        <p className="cd-res-meta">기준: {def.rule[0]} · {def.rule[1]}</p>
+        <ul className="cd-list">{r.list.slice(0, 5).map((d, i) => <DrinkCard key={d.id} d={d} ds={ds} rankNo={i + 1} from="ranking_home" />)}</ul>
+      </div>
+    </section>
   );
 }
 
-const INTERESTS = ["당류 관리", "단백질 보충", "식물성 음료", "카페인 줄이기", "체지방 관리"];
+const INTERESTS = ["당류 관리", "체지방 관리", "단백질 보충", "식물성 식단", "카페인 줄이기", "운동 후 회복", "장 건강", "면역 건강", "수면·이완", "피부 건강"];
 
 function Signup({ innerRef }: { innerRef: React.RefObject<HTMLElement | null> }) {
   const [email, setEmail] = useState("");
   const [picks, setPicks] = useState<Set<string>>(new Set());
   const [agree, setAgree] = useState(false);
-  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [mkt, setMkt] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [state, setState] = useState<"idle" | "sending" | "done" | "dup" | "error">("idle");
   const started = useRef(false);
-  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && agree;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
 
+  const onFocus = () => { if (!started.current) { started.current = true; ga("signup_start", { from: "form" }); } };
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!valid || state === "sending") return;
+    setTouched(true);
+    if (!emailOk || !agree || state === "sending") return;
+    const key = email.trim().toLowerCase();
+    let sent: string[] = [];
+    try { sent = JSON.parse(localStorage.getItem("cd.signed.v1") || "[]"); } catch { /* noop */ }
+    if (sent.includes(key)) { setState("dup"); return; }
     setState("sending");
     const q = new URLSearchParams(window.location.search);
+    const now = new Date().toISOString();
     const payload = {
-      kind: "lead",
-      variant: "wellness",
-      email,
-      interests: [...picks].join(", "),
-      consent: true,
-      utm_source: q.get("utm_source") || "mvp_chungdam",
-      utm_medium: q.get("utm_medium") || "",
-      utm_campaign: q.get("utm_campaign") || "",
-      page: "chungdam_mvp",
-      ts: new Date().toISOString(),
+      kind: "lead", variant: "wellness", email: key, interests: [...picks].join(", "),
+      consent: true, consent_version: CONSENT_VERSION, consent_at: now, marketing_opt_in: mkt,
+      utm_source: q.get("utm_source") || "mvp_chungdam", utm_medium: q.get("utm_medium") || "", utm_campaign: q.get("utm_campaign") || "",
+      referrer: document.referrer || "", page: "chungdam_mvp", ts: now,
     };
     try {
       await fetch(ENDPOINT, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+      try { localStorage.setItem("cd.signed.v1", JSON.stringify([...sent, key])); } catch { /* noop */ }
       setState("done");
-      ga("signup_complete", { interests: payload.interests });
+      ga("signup_complete", { interests: payload.interests, marketing_opt_in: mkt }); // 이메일은 GA로 보내지 않음
     } catch {
       setState("error");
     }
-  };
-
-  const onFocus = () => {
-    if (!started.current) { started.current = true; ga("signup_start", { from: "form" }); }
   };
 
   return (
@@ -414,29 +469,34 @@ function Signup({ innerRef }: { innerRef: React.RefObject<HTMLElement | null> })
       <div className="cd-wrap">
         <div className="cd-sign-box">
           <h2>출시 소식 가장 먼저 받기</h2>
-          <p className="cd-sub">관심 있는 목표를 알려주시면 맞는 음료 소식을 먼저 보내드려요.</p>
+          <p className="cd-sub">관심 분야를 알려주시면 맞는 음료와 샘플러 소식을 먼저 보내드려요.</p>
           {state === "done" ? (
             <p className="cd-done">신청 완료! 출시 소식을 이메일로 보내드릴게요.</p>
           ) : (
-            <form onSubmit={submit}>
+            <form onSubmit={submit} noValidate>
+              <h3 className="cd-sign-h">관심 분야 <span>선택 · 복수 가능</span></h3>
               <div className="cd-chips">
                 {INTERESTS.map((t) => (
                   <button key={t} type="button" aria-pressed={picks.has(t)} className={`cd-chip${picks.has(t) ? " on" : ""}`}
-                    onClick={() => { const n = new Set(picks); if (n.has(t)) n.delete(t); else n.add(t); setPicks(n); onFocus(); }}>
-                    {t}
-                  </button>
+                    onClick={() => { const n = new Set(picks); if (n.has(t)) n.delete(t); else n.add(t); setPicks(n); onFocus(); }}>{t}</button>
                 ))}
               </div>
-              <input className="cd-input" type="email" inputMode="email" autoComplete="email" placeholder="이메일 주소"
-                value={email} onChange={(e) => setEmail(e.target.value)} onFocus={onFocus} required />
+              <input className={`cd-input${touched && !emailOk ? " bad" : ""}`} type="email" inputMode="email" autoComplete="email" placeholder="이메일 주소 (필수)"
+                value={email} onChange={(e) => { setEmail(e.target.value); if (state === "dup") setState("idle"); }} onFocus={onFocus} aria-invalid={touched && !emailOk} />
+              {touched && !emailOk ? <p className="cd-err">이메일 형식을 확인해 주세요.</p> : null}
               <label className="cd-agree">
                 <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
-                <span>출시 알림 발송을 위한 이메일 수집·이용에 동의합니다. (출시 후 6개월 내 파기)</span>
+                <span><b>[필수]</b> 개인정보 수집·이용 동의 — 수집 항목: 이메일, 관심 분야 / 목적: 출시 알림 발송 / 보유: 출시 후 6개월 또는 철회 시까지. 동의를 거부할 수 있으나 이 경우 알림을 받을 수 없어요.</span>
               </label>
-              <button type="submit" className="cd-btn block" disabled={!valid || state === "sending"}>
-                {state === "sending" ? "보내는 중…" : "출시 알림 신청"}
-              </button>
+              {touched && !agree ? <p className="cd-err">필수 동의에 체크해 주세요.</p> : null}
+              <label className="cd-agree">
+                <input type="checkbox" checked={mkt} onChange={(e) => setMkt(e.target.checked)} />
+                <span><b>[선택]</b> 신제품·샘플러 등 마케팅 정보 수신 동의</span>
+              </label>
+              <button type="submit" className="cd-btn block" disabled={state === "sending"}>{state === "sending" ? "보내는 중…" : "출시 알림 신청"}</button>
+              {state === "dup" ? <p className="cd-err">이미 신청하신 이메일이에요. 출시 소식을 보내드릴게요.</p> : null}
               {state === "error" ? <p className="cd-err">전송에 실패했어요. 잠시 후 다시 시도해 주세요.</p> : null}
+              <p className="cd-note">수신 철회·삭제 요청은 알림 메일 하단 링크 또는 회신으로 언제든 가능해요. 건강 상태 등 민감정보는 수집하지 않습니다.</p>
             </form>
           )}
         </div>
