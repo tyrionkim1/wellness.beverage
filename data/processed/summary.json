@@ -1,12 +1,12 @@
 {
-  "collected": "2026-10-12",
+  "collected": "2026-10-19",
   "baseDate": "2026-09-29",
   "rawTotal": 37899,
   "count": 30963,
   "excluded": 6936,
   "singleServe": 22229,
-  "newCount": 399,
-  "newRule": "created30",
+  "newCount": 0,
+  "newRule": "prev",
   "latestCreated": "2026-08-31",
   "caffeineCount": 0,
   "imageCount": 6,
@@ -24,7 +24,7 @@
     "탄산수": 222,
     "효모음료": 44
   },
-  "ingredientCount": 7374,
+  "ingredientCount": 7388,
   "tasteCount": 0,
   "fiberCount": 996,
   "majorCount": 3040
