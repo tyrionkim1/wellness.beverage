@@ -1,5 +1,5 @@
 {
-  "collected": "2026-11-16",
+  "collected": "2026-11-23",
   "baseDate": "2026-10-29",
   "rawTotal": 38437,
   "count": 31379,
@@ -24,7 +24,7 @@
     "탄산수": 222,
     "효모음료": 44
   },
-  "ingredientCount": 18646,
+  "ingredientCount": 18712,
   "tasteCount": 0,
   "fiberCount": 1015,
   "majorCount": 3072
